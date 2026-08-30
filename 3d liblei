@@ -1,5 +1,5 @@
 --[[
-    3D KAVO STYLE LIBRARY 67
+    3D KAVO STYLE LIBRARY
     ======================
 
     Example:
@@ -553,87 +553,81 @@ function Library.CreateLib(kavName, themeName)
     ------------------------------------------------------------
 
     local function getMouseSurfacePosition()
-    
-        local camera = workspace.CurrentCamera
-    
+
+        local camera = getCamera()
+
         if not camera then
             return nil
         end
-    
-        local mousePosition =
+
+        local mouse =
             UserInputService:GetMouseLocation()
-    
+
         local ray =
             camera:ViewportPointToRay(
-                mousePosition.X,
-                mousePosition.Y
+                mouse.X,
+                mouse.Y
             )
-    
-        local result =
-            workspace:Raycast(
-                ray.Origin,
-                ray.Direction * 1000,
-                RaycastParams
-            )
-    
-        if not result then
+
+        local origin =
+            ray.Origin
+
+        local direction =
+            ray.Direction
+
+        local normal =
+            WindowPart.CFrame.LookVector
+
+        local denominator =
+            normal:Dot(direction)
+
+        if math.abs(denominator) < 0.00001 then
             return nil
         end
-    
-        if result.Instance ~= WindowPart then
+
+        local distance =
+            normal:Dot(
+                WindowPart.Position - origin
+            )
+            / denominator
+
+        if distance <= 0 then
             return nil
         end
-    
+
+        local worldPoint =
+            origin
+            + direction * distance
+
         local localPoint =
-            WindowPart.CFrame:PointToObjectSpace(
-                result.Position
-            )
-    
-        local halfX =
-            WindowPart.Size.X / 2
-    
-        local halfY =
-            WindowPart.Size.Y / 2
-    
-        local normalizedX =
-            (localPoint.X + halfX)
+            WindowPart.CFrame
+            :PointToObjectSpace(worldPoint)
+
+        local x =
+            (localPoint.X
+                + WindowPart.Size.X / 2)
             / WindowPart.Size.X
-    
-        local normalizedY =
-            (-localPoint.Y + halfY)
+
+        local y =
+            (-localPoint.Y
+                + WindowPart.Size.Y / 2)
             / WindowPart.Size.Y
-    
-        ------------------------------------------------
-        -- MIRROR X
-        ------------------------------------------------
-    
-        normalizedX =
-            1 - normalizedX
-    
-        ------------------------------------------------
-        -- LIMIT
-        ------------------------------------------------
-    
-        normalizedX =
-            math.clamp(
-                normalizedX,
-                0,
-                1
-            )
-    
-        normalizedY =
-            math.clamp(
-                normalizedY,
-                0,
-                1
-            )
-    
+
+        if x < 0 or x > 1
+            or y < 0 or y > 1 then
+
+            return nil
+        end
+
+        local absoluteX =
+            x * Surface.AbsoluteSize.X
+
+        local absoluteY =
+            y * Surface.AbsoluteSize.Y
+
         return Vector2.new(
-            normalizedX
-                * Surface.AbsoluteSize.X,
-    
-            normalizedY
-                * Surface.AbsoluteSize.Y
+            absoluteX,
+            absoluteY
         )
     end
 
