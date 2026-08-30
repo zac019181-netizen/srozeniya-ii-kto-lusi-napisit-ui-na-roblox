@@ -1,1 +1,4234 @@
--- gpt
+--[[
+    Moonwalk UI Library
+    Modern Roblox Luau UI Framework
+
+    Features:
+        - Window / Tabs / Sections
+        - Button / Toggle / Slider / Dropdown / Textbox
+        - Image / Label / Paragraph / Keybind
+        - Notifications
+        - Themes
+        - Font Manager
+        - Sound Manager
+        - Config Manager
+        - UI Scale
+        - Animation Manager
+        - Drag / Touch
+        - Safe callbacks
+        - Cleanup / Destroy
+        - Optional executor filesystem support
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local ContentProvider = game:GetService("ContentProvider")
+
+local LocalPlayer = Players.LocalPlayer
+
+local Library = {}
+Library.__index = Library
+
+Library.Version = "1.0.0"
+Library.Destroyed = false
+Library.AnimationSpeed = 0.25
+Library.AnimationsEnabled = true
+Library.Scale = 1
+Library.Font = Enum.Font.Gotham
+Library.SoundEnabled = true
+Library.SoundVolume = 0.5
+Library.NotificationVolume = 0.65
+Library.Transparency = 0
+Library.AutoOpen = true
+Library.CloseOnToggleKey = false
+
+----------------------------------------------------------------
+-- Utility
+----------------------------------------------------------------
+
+local Utility = {}
+
+function Utility.SafeCall(callback, ...)
+    if type(callback) ~= "function" then
+        return true
+    end
+
+    local args = table.pack(...)
+
+    local success, err = pcall(function()
+        callback(table.unpack(args, 1, args.n))
+    end)
+
+    if not success then
+        warn("[Moonwalk UI] Callback error:", err)
+    end
+
+    return success, err
+end
+
+function Utility.Clamp(value, minValue, maxValue)
+    return math.clamp(value, minValue, maxValue)
+end
+
+function Utility.Round(value, decimals)
+    decimals = decimals or 0
+
+    local multiplier = 10 ^ decimals
+    return math.floor(value * multiplier + 0.5) / multiplier
+end
+
+function Utility.ShallowCopy(tbl)
+    local result = {}
+
+    for key, value in pairs(tbl) do
+        result[key] = value
+    end
+
+    return result
+end
+
+function Utility.SanitizeFileName(name)
+    name = tostring(name or "Config")
+    name = name:gsub("[^%w_%-%s]", "")
+    name = name:gsub("%s+", "_")
+
+    if name == "" then
+        name = "Config"
+    end
+
+    return name
+end
+
+function Utility.PointInside(guiObject, point)
+    if not guiObject or not guiObject.Parent then
+        return false
+    end
+
+    local position = guiObject.AbsolutePosition
+    local size = guiObject.AbsoluteSize
+
+    return point.X >= position.X
+        and point.X <= position.X + size.X
+        and point.Y >= position.Y
+        and point.Y <= position.Y + size.Y
+end
+
+function Utility.Create(className, properties, parent)
+    local object = Instance.new(className)
+
+    for property, value in pairs(properties or {}) do
+        object[property] = value
+    end
+
+    object.Parent = parent
+
+    return object
+end
+
+----------------------------------------------------------------
+-- Themes
+----------------------------------------------------------------
+
+local ThemeManager = {
+    Themes = {},
+    CurrentTheme = "Dark",
+    Bindings = {},
+}
+
+function ThemeManager:RegisterTheme(name, theme)
+    assert(type(name) == "string", "Theme name must be a string")
+    assert(type(theme) == "table", "Theme must be a table")
+
+    self.Themes[name] = theme
+end
+
+function ThemeManager:GetTheme()
+    return self.Themes[self.CurrentTheme]
+end
+
+function ThemeManager:GetColor(token)
+    local theme = self:GetTheme()
+
+    if not theme then
+        return Color3.new(1, 1, 1)
+    end
+
+    return theme[token] or theme.Text or Color3.new(1, 1, 1)
+end
+
+function ThemeManager:Bind(instance, property, token, transform)
+    local binding = {
+        Instance = instance,
+        Property = property,
+        Token = token,
+        Transform = transform,
+        Alive = true,
+    }
+
+    table.insert(self.Bindings, binding)
+
+    local value = self:GetColor(token)
+
+    if transform then
+        value = transform(value, token, self:GetTheme())
+    end
+
+    pcall(function()
+        instance[property] = value
+    end)
+
+    return function()
+        binding.Alive = false
+    end
+end
+
+function ThemeManager:ReapplyBinding(binding)
+    if not binding.Alive then
+        return
+    end
+
+    if not binding.Instance or not binding.Instance.Parent then
+        binding.Alive = false
+        return
+    end
+
+    local value = self:GetColor(binding.Token)
+
+    if binding.Transform then
+        value = binding.Transform(value, binding.Token, self:GetTheme())
+    end
+
+    pcall(function()
+        binding.Instance[binding.Property] = value
+    end)
+end
+
+function ThemeManager:SetTheme(name)
+    if not self.Themes[name] then
+        warn("[Moonwalk UI] Unknown theme:", name)
+        return false
+    end
+
+    self.CurrentTheme = name
+
+    for _, binding in ipairs(self.Bindings) do
+        self:ReapplyBinding(binding)
+    end
+
+    return true
+end
+
+function ThemeManager:Cleanup()
+    table.clear(self.Bindings)
+end
+
+ThemeManager:RegisterTheme("Dark", {
+    Background = Color3.fromRGB(13, 14, 18),
+    Secondary = Color3.fromRGB(17, 19, 24),
+    Panel = Color3.fromRGB(20, 22, 28),
+    Element = Color3.fromRGB(24, 27, 34),
+    ElementHover = Color3.fromRGB(29, 32, 40),
+    Accent = Color3.fromRGB(114, 92, 255),
+    Accent2 = Color3.fromRGB(146, 127, 255),
+    Text = Color3.fromRGB(240, 242, 247),
+    TextDark = Color3.fromRGB(160, 165, 176),
+    Border = Color3.fromRGB(44, 47, 57),
+    Success = Color3.fromRGB(80, 210, 140),
+    Warning = Color3.fromRGB(245, 185, 80),
+    Error = Color3.fromRGB(235, 85, 95),
+    Info = Color3.fromRGB(80, 170, 255),
+})
+
+ThemeManager:RegisterTheme("Midnight", {
+    Background = Color3.fromRGB(7, 9, 13),
+    Secondary = Color3.fromRGB(11, 14, 20),
+    Panel = Color3.fromRGB(15, 18, 25),
+    Element = Color3.fromRGB(18, 22, 30),
+    ElementHover = Color3.fromRGB(23, 27, 37),
+    Accent = Color3.fromRGB(72, 130, 255),
+    Accent2 = Color3.fromRGB(103, 154, 255),
+    Text = Color3.fromRGB(236, 240, 248),
+    TextDark = Color3.fromRGB(150, 158, 174),
+    Border = Color3.fromRGB(35, 41, 53),
+    Success = Color3.fromRGB(70, 210, 140),
+    Warning = Color3.fromRGB(245, 184, 80),
+    Error = Color3.fromRGB(235, 82, 96),
+    Info = Color3.fromRGB(70, 160, 255),
+})
+
+ThemeManager:RegisterTheme("Moonwalk", {
+    Background = Color3.fromRGB(11, 11, 19),
+    Secondary = Color3.fromRGB(17, 16, 27),
+    Panel = Color3.fromRGB(22, 20, 34),
+    Element = Color3.fromRGB(29, 26, 44),
+    ElementHover = Color3.fromRGB(35, 31, 54),
+    Accent = Color3.fromRGB(164, 125, 255),
+    Accent2 = Color3.fromRGB(196, 167, 255),
+    Text = Color3.fromRGB(244, 240, 255),
+    TextDark = Color3.fromRGB(169, 159, 190),
+    Border = Color3.fromRGB(54, 48, 75),
+    Success = Color3.fromRGB(90, 215, 150),
+    Warning = Color3.fromRGB(248, 185, 88),
+    Error = Color3.fromRGB(237, 88, 104),
+    Info = Color3.fromRGB(110, 160, 255),
+})
+
+ThemeManager:RegisterTheme("Cyan", {
+    Background = Color3.fromRGB(9, 14, 17),
+    Secondary = Color3.fromRGB(13, 20, 24),
+    Panel = Color3.fromRGB(16, 25, 30),
+    Element = Color3.fromRGB(20, 31, 37),
+    ElementHover = Color3.fromRGB(25, 39, 46),
+    Accent = Color3.fromRGB(45, 195, 220),
+    Accent2 = Color3.fromRGB(90, 225, 240),
+    Text = Color3.fromRGB(236, 247, 249),
+    TextDark = Color3.fromRGB(157, 180, 187),
+    Border = Color3.fromRGB(39, 57, 65),
+    Success = Color3.fromRGB(82, 210, 150),
+    Warning = Color3.fromRGB(245, 184, 80),
+    Error = Color3.fromRGB(235, 85, 98),
+    Info = Color3.fromRGB(70, 185, 255),
+})
+
+ThemeManager:RegisterTheme("Purple", {
+    Background = Color3.fromRGB(15, 10, 21),
+    Secondary = Color3.fromRGB(21, 14, 30),
+    Panel = Color3.fromRGB(26, 18, 37),
+    Element = Color3.fromRGB(34, 23, 47),
+    ElementHover = Color3.fromRGB(42, 28, 57),
+    Accent = Color3.fromRGB(184, 92, 255),
+    Accent2 = Color3.fromRGB(211, 135, 255),
+    Text = Color3.fromRGB(246, 238, 252),
+    TextDark = Color3.fromRGB(177, 159, 186),
+    Border = Color3.fromRGB(57, 40, 69),
+    Success = Color3.fromRGB(86, 213, 150),
+    Warning = Color3.fromRGB(245, 186, 84),
+    Error = Color3.fromRGB(238, 87, 103),
+    Info = Color3.fromRGB(112, 153, 255),
+})
+
+ThemeManager:RegisterTheme("Red", {
+    Background = Color3.fromRGB(18, 10, 12),
+    Secondary = Color3.fromRGB(25, 14, 17),
+    Panel = Color3.fromRGB(31, 18, 21),
+    Element = Color3.fromRGB(40, 22, 26),
+    ElementHover = Color3.fromRGB(49, 27, 32),
+    Accent = Color3.fromRGB(235, 76, 94),
+    Accent2 = Color3.fromRGB(255, 112, 128),
+    Text = Color3.fromRGB(250, 238, 240),
+    TextDark = Color3.fromRGB(184, 157, 161),
+    Border = Color3.fromRGB(67, 38, 43),
+    Success = Color3.fromRGB(83, 211, 146),
+    Warning = Color3.fromRGB(245, 181, 76),
+    Error = Color3.fromRGB(255, 95, 105),
+    Info = Color3.fromRGB(91, 160, 255),
+})
+
+ThemeManager:RegisterTheme("Green", {
+    Background = Color3.fromRGB(8, 15, 12),
+    Secondary = Color3.fromRGB(12, 21, 17),
+    Panel = Color3.fromRGB(16, 28, 22),
+    Element = Color3.fromRGB(20, 35, 27),
+    ElementHover = Color3.fromRGB(25, 42, 33),
+    Accent = Color3.fromRGB(53, 194, 120),
+    Accent2 = Color3.fromRGB(88, 226, 148),
+    Text = Color3.fromRGB(236, 249, 241),
+    TextDark = Color3.fromRGB(157, 183, 167),
+    Border = Color3.fromRGB(36, 61, 46),
+    Success = Color3.fromRGB(67, 218, 134),
+    Warning = Color3.fromRGB(246, 187, 80),
+    Error = Color3.fromRGB(237, 86, 100),
+    Info = Color3.fromRGB(81, 164, 255),
+})
+
+----------------------------------------------------------------
+-- Font Manager
+----------------------------------------------------------------
+
+local FontManager = {
+    Bindings = {},
+}
+
+function FontManager:Bind(instance)
+    local binding = {
+        Instance = instance,
+        Alive = true,
+    }
+
+    table.insert(self.Bindings, binding)
+
+    pcall(function()
+        instance.Font = Library.Font
+    end)
+
+    return function()
+        binding.Alive = false
+    end
+end
+
+function FontManager:Reapply()
+    for _, binding in ipairs(self.Bindings) do
+        if not binding.Alive then
+            continue
+        end
+
+        if not binding.Instance or not binding.Instance.Parent then
+            binding.Alive = false
+            continue
+        end
+
+        pcall(function()
+            binding.Instance.Font = Library.Font
+        end)
+    end
+end
+
+function FontManager:Cleanup()
+    table.clear(self.Bindings)
+end
+
+----------------------------------------------------------------
+-- Animation Manager
+----------------------------------------------------------------
+
+local AnimationManager = {
+    ActiveTweens = {},
+}
+
+function AnimationManager:GetInfo(style)
+    style = style or "Quad"
+
+    local easingStyle = Enum.EasingStyle.Quad
+
+    if style == "Linear" then
+        easingStyle = Enum.EasingStyle.Linear
+    elseif style == "Sine" then
+        easingStyle = Enum.EasingStyle.Sine
+    elseif style == "Back" then
+        easingStyle = Enum.EasingStyle.Back
+    elseif style == "Quint" then
+        easingStyle = Enum.EasingStyle.Quint
+    end
+
+    local speed = Library.AnimationSpeed
+
+    if not Library.AnimationsEnabled then
+        speed = 0
+    end
+
+    return TweenInfo.new(
+        speed,
+        easingStyle,
+        Enum.EasingDirection.Out
+    )
+end
+
+function AnimationManager:Tween(instance, properties, style)
+    if not instance or not instance.Parent then
+        return nil
+    end
+
+    local info = self:GetInfo(style)
+
+    local tween = TweenService:Create(
+        instance,
+        info,
+        properties
+    )
+
+    table.insert(self.ActiveTweens, tween)
+
+    tween.Completed:Connect(function()
+        local index = table.find(self.ActiveTweens, tween)
+
+        if index then
+            table.remove(self.ActiveTweens, index)
+        end
+    end)
+
+    tween:Play()
+
+    return tween
+end
+
+function AnimationManager:StopAll()
+    for _, tween in ipairs(self.ActiveTweens) do
+        pcall(function()
+            tween:Cancel()
+        end)
+    end
+
+    table.clear(self.ActiveTweens)
+end
+
+----------------------------------------------------------------
+-- Sound Manager
+----------------------------------------------------------------
+
+local SoundManager = {
+    Sounds = {},
+    SoundIds = {
+        Click = "",
+        Hover = "",
+        Notification = "",
+        Dropdown = "",
+    },
+}
+
+function SoundManager:_getSound(name)
+    local id = self.SoundIds[name]
+
+    if not id or id == "" then
+        return nil
+    end
+
+    local sound = self.Sounds[name]
+
+    if sound and sound.Parent then
+        return sound
+    end
+
+    local gui = Library.ScreenGui
+
+    if not gui then
+        return nil
+    end
+
+    sound = Utility.Create("Sound", {
+        Name = "MoonwalkSound_" .. name,
+        SoundId = id,
+        Volume = 0.5,
+    }, gui)
+
+    self.Sounds[name] = sound
+
+    return sound
+end
+
+function SoundManager:SetSound(name, id)
+    name = tostring(name)
+
+    self.SoundIds[name] = tostring(id or "")
+
+    local sound = self.Sounds[name]
+
+    if sound then
+        sound.SoundId = self.SoundIds[name]
+    end
+end
+
+function SoundManager:SetEnabled(enabled)
+    Library.SoundEnabled = enabled == true
+end
+
+function SoundManager:SetVolume(volume)
+    Library.SoundVolume = math.clamp(tonumber(volume) or 0.5, 0, 1)
+end
+
+function SoundManager:SetNotificationVolume(volume)
+    Library.NotificationVolume = math.clamp(tonumber(volume) or 0.65, 0, 1)
+end
+
+function SoundManager:Play(name, volume)
+    if not Library.SoundEnabled then
+        return
+    end
+
+    local sound = self:_getSound(name)
+
+    if not sound then
+        return
+    end
+
+    sound.Volume = math.clamp(
+        (volume or 1)
+            * Library.SoundVolume
+            * (name == "Notification" and Library.NotificationVolume or 1),
+        0,
+        1
+    )
+
+    sound.TimePosition = 0
+
+    pcall(function()
+        sound:Play()
+    end)
+end
+
+function SoundManager:Destroy()
+    for _, sound in pairs(self.Sounds) do
+        pcall(function()
+            sound:Destroy()
+        end)
+    end
+
+    table.clear(self.Sounds)
+end
+
+----------------------------------------------------------------
+-- Transparency Manager
+----------------------------------------------------------------
+
+local TransparencyManager = {
+    Objects = {},
+}
+
+function TransparencyManager:Register(object, baseTransparency)
+    if not object:IsA("GuiObject") then
+        return
+    end
+
+    local entry = {
+        Object = object,
+        Base = baseTransparency or object.BackgroundTransparency,
+        Alive = true,
+    }
+
+    table.insert(self.Objects, entry)
+
+    self:Apply(entry)
+
+    return function()
+        entry.Alive = false
+    end
+end
+
+function TransparencyManager:Apply(entry)
+    if not entry.Alive then
+        return
+    end
+
+    if not entry.Object or not entry.Object.Parent then
+        entry.Alive = false
+        return
+    end
+
+    local base = entry.Base or 0
+    local amount = Library.Transparency
+
+    local result = base + ((1 - base) * amount)
+
+    entry.Object.BackgroundTransparency = math.clamp(result, 0, 1)
+end
+
+function TransparencyManager:Reapply()
+    for _, entry in ipairs(self.Objects) do
+        self:Apply(entry)
+    end
+end
+
+function TransparencyManager:Cleanup()
+    table.clear(self.Objects)
+end
+
+----------------------------------------------------------------
+-- Config Manager
+----------------------------------------------------------------
+
+local ConfigManager = {
+    FolderName = "MoonwalkUI",
+    ConfigFolderName = "Configs",
+
+    Controls = {},
+    Pending = {},
+    MemoryConfigs = {},
+
+    Loading = false,
+    AutoSave = false,
+    SaveThread = nil,
+    Alive = true,
+}
+
+local function serializeValue(value)
+    if typeof(value) == "EnumItem" then
+        return {
+            __type = "EnumItem",
+            EnumType = tostring(value.EnumType),
+            Name = value.Name,
+        }
+    end
+
+    if type(value) == "table" then
+        local result = {}
+
+        for key, item in pairs(value) do
+            result[key] = serializeValue(item)
+        end
+
+        return result
+    end
+
+    if type(value) == "string"
+        or type(value) == "number"
+        or type(value) == "boolean"
+        or value == nil then
+
+        return value
+    end
+
+    return tostring(value)
+end
+
+local function deserializeValue(value)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    if value.__type == "EnumItem" then
+        local enumObject = Enum[value.EnumType]
+
+        if enumObject then
+            local item = enumObject[value.Name]
+
+            if item then
+                return item
+            end
+        end
+
+        return Enum.KeyCode.Unknown
+    end
+
+    local result = {}
+
+    for key, item in pairs(value) do
+        result[key] = deserializeValue(item)
+    end
+
+    return result
+end
+
+function ConfigManager:_filePath(name)
+    local safeName = Utility.SanitizeFileName(name)
+
+    return self.FolderName
+        .. "/"
+        .. self.ConfigFolderName
+        .. "/"
+        .. safeName
+        .. ".json"
+end
+
+function ConfigManager:_hasFilesystem()
+    return type(isfile) == "function"
+        and type(readfile) == "function"
+        and type(writefile) == "function"
+end
+
+function ConfigManager:_ensureFolders()
+    if type(makefolder) ~= "function" then
+        return
+    end
+
+    local folder = self.FolderName
+    local configFolder = self.FolderName .. "/" .. self.ConfigFolderName
+
+    if type(isfolder) == "function" then
+        if not isfolder(folder) then
+            pcall(makefolder, folder)
+        end
+
+        if not isfolder(configFolder) then
+            pcall(makefolder, configFolder)
+        end
+    else
+        pcall(makefolder, folder)
+        pcall(makefolder, configFolder)
+    end
+end
+
+function ConfigManager:Register(control)
+    self.Controls[control.ConfigKey] = control
+
+    local pending = self.Pending[control.ConfigKey]
+
+    if pending ~= nil then
+        task.defer(function()
+            if control.Destroyed then
+                return
+            end
+
+            self.Loading = true
+
+            pcall(function()
+                control:SetValue(deserializeValue(pending), false)
+            end)
+
+            self.Loading = false
+
+            self.Pending[control.ConfigKey] = nil
+        end)
+    end
+end
+
+function ConfigManager:Unregister(control)
+    if self.Controls[control.ConfigKey] == control then
+        self.Controls[control.ConfigKey] = nil
+    end
+end
+
+function ConfigManager:BuildData()
+    local data = {
+        Version = Library.Version,
+        Controls = {},
+    }
+
+    for key, control in pairs(self.Controls) do
+        if not control.Destroyed and type(control.GetValue) == "function" then
+            local success, value = pcall(function()
+                return control:GetValue()
+            end)
+
+            if success then
+                data.Controls[key] = serializeValue(value)
+            end
+        end
+    end
+
+    return data
+end
+
+function ConfigManager:_write(name, data)
+    local encoded = HttpService:JSONEncode(data)
+
+    if self:_hasFilesystem() then
+        self:_ensureFolders()
+
+        local path = self:_filePath(name)
+
+        local success, err = pcall(function()
+            writefile(path, encoded)
+        end)
+
+        if not success then
+            warn("[Moonwalk UI] Failed to write config:", err)
+            return false
+        end
+
+        return true
+    end
+
+    self.MemoryConfigs[Utility.SanitizeFileName(name)] = encoded
+
+    return true
+end
+
+function ConfigManager:Save(name)
+    if not self.Alive then
+        return false
+    end
+
+    name = name or "Default"
+
+    local data = self:BuildData()
+
+    return self:_write(name, data)
+end
+
+function ConfigManager:Load(name)
+    name = name or "Default"
+
+    local encoded
+
+    if self:_hasFilesystem() then
+        local path = self:_filePath(name)
+
+        if not isfile(path) then
+            warn("[Moonwalk UI] Config not found:", name)
+            return false
+        end
+
+        local success, result = pcall(readfile, path)
+
+        if not success then
+            warn("[Moonwalk UI] Failed to read config:", result)
+            return false
+        end
+
+        encoded = result
+    else
+        encoded = self.MemoryConfigs[Utility.SanitizeFileName(name)]
+
+        if not encoded then
+            warn("[Moonwalk UI] Config not found:", name)
+            return false
+        end
+    end
+
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(encoded)
+    end)
+
+    if not success or type(data) ~= "table" then
+        warn("[Moonwalk UI] Invalid config:", name)
+        return false
+    end
+
+    self.Loading = true
+
+    self.Pending = {}
+
+    for key, value in pairs(data.Controls or {}) do
+        self.Pending[key] = value
+    end
+
+    for key, control in pairs(self.Controls) do
+        local value = self.Pending[key]
+
+        if value ~= nil then
+            pcall(function()
+                control:SetValue(deserializeValue(value), false)
+            end)
+
+            self.Pending[key] = nil
+        end
+    end
+
+    self.Loading = false
+
+    return true
+end
+
+function ConfigManager:Delete(name)
+    name = name or "Default"
+
+    local safeName = Utility.SanitizeFileName(name)
+
+    if self:_hasFilesystem() then
+        if type(delfile) ~= "function" then
+            return false
+        end
+
+        local path = self:_filePath(name)
+
+        if isfile(path) then
+            return pcall(delfile, path)
+        end
+
+        return false
+    end
+
+    if self.MemoryConfigs[safeName] then
+        self.MemoryConfigs[safeName] = nil
+        return true
+    end
+
+    return false
+end
+
+function ConfigManager:GetConfigs()
+    local configs = {}
+
+    if self:_hasFilesystem() and type(listfiles) == "function" then
+        self:_ensureFolders()
+
+        local success, files = pcall(listfiles, self.FolderName .. "/" .. self.ConfigFolderName)
+
+        if success and type(files) == "table" then
+            for _, path in ipairs(files) do
+                local name = path:match("([^/\\]+)%.json$")
+
+                if name then
+                    table.insert(configs, name)
+                end
+            end
+        end
+    else
+        for name in pairs(self.MemoryConfigs) do
+            table.insert(configs, name)
+        end
+    end
+
+    table.sort(configs)
+
+    return configs
+end
+
+function ConfigManager:SetAutoSave(enabled)
+    self.AutoSave = enabled == true
+end
+
+function ConfigManager:QueueAutoSave()
+    if not self.AutoSave
+        or self.Loading
+        or not self.Alive then
+
+        return
+    end
+
+    if self.SaveThread then
+        task.cancel(self.SaveThread)
+        self.SaveThread = nil
+    end
+
+    self.SaveThread = task.delay(0.5, function()
+        self.SaveThread = nil
+
+        if not self.Alive then
+            return
+        end
+
+        self:Save("AutoSave")
+    end)
+end
+
+function ConfigManager:Destroy()
+    self.Alive = false
+
+    if self.SaveThread then
+        task.cancel(self.SaveThread)
+        self.SaveThread = nil
+    end
+
+    table.clear(self.Controls)
+    table.clear(self.Pending)
+end
+
+----------------------------------------------------------------
+-- Component Base
+----------------------------------------------------------------
+
+local Component = {}
+Component.__index = Component
+
+function Component.new(library, window, parent)
+    local self = setmetatable({}, Component)
+
+    self.Library = library
+    self.Window = window
+    self.Parent = parent
+
+    self.Connections = {}
+    self.CleanupTasks = {}
+    self.ThemeUnbinds = {}
+    self.FontUnbinds = {}
+
+    self.Destroyed = false
+
+    return self
+end
+
+function Component:Connect(connection)
+    table.insert(self.Connections, connection)
+    return connection
+end
+
+function Component:BindTheme(instance, property, token, transform)
+    local unbind = ThemeManager:Bind(
+        instance,
+        property,
+        token,
+        transform
+    )
+
+    table.insert(self.ThemeUnbinds, unbind)
+
+    return unbind
+end
+
+function Component:BindFont(instance)
+    local unbind = FontManager:Bind(instance)
+
+    table.insert(self.FontUnbinds, unbind)
+
+    return unbind
+end
+
+function Component:RegisterTransparency(instance, base)
+    return TransparencyManager:Register(instance, base)
+end
+
+function Component:AddCleanup(callback)
+    table.insert(self.CleanupTasks, callback)
+end
+
+function Component:SafeCallback(callback, ...)
+    if self.Destroyed
+        or self.Library.Destroyed then
+
+        return
+    end
+
+    Utility.SafeCall(callback, ...)
+end
+
+function Component:Destroy()
+    if self.Destroyed then
+        return
+    end
+
+    self.Destroyed = true
+
+    for _, connection in ipairs(self.Connections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
+
+    table.clear(self.Connections)
+
+    for _, unbind in ipairs(self.ThemeUnbinds) do
+        pcall(unbind)
+    end
+
+    table.clear(self.ThemeUnbinds)
+
+    for _, unbind in ipairs(self.FontUnbinds) do
+        pcall(unbind)
+    end
+
+    table.clear(self.FontUnbinds)
+
+    for _, callback in ipairs(self.CleanupTasks) do
+        pcall(callback)
+    end
+
+    table.clear(self.CleanupTasks)
+end
+
+----------------------------------------------------------------
+-- Element Factory
+----------------------------------------------------------------
+
+local function StyleFrame(component, frame, colorToken, transparency)
+    component:BindTheme(frame, "BackgroundColor3", colorToken)
+    component:RegisterTransparency(frame, transparency or 0)
+
+    local corner = Utility.Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+    }, frame)
+
+    return frame, corner
+end
+
+local function StyleStroke(component, object, token, transparency)
+    local stroke = Utility.Create("UIStroke", {
+        Thickness = 1,
+        Transparency = transparency or 0,
+    }, object)
+
+    component:BindTheme(stroke, "Color", token)
+
+    return stroke
+end
+
+local function MakeLabel(component, parent, properties, token)
+    local label = Utility.Create("TextLabel", properties or {}, parent)
+
+    component:BindFont(label)
+
+    if token then
+        component:BindTheme(label, "TextColor3", token)
+    end
+
+    return label
+end
+
+----------------------------------------------------------------
+-- Tab
+----------------------------------------------------------------
+
+local Tab = {}
+Tab.__index = Tab
+
+function Tab.new(window, options)
+    local self = setmetatable({}, Tab)
+
+    self.Window = window
+    self.Library = window.Library
+    self.Name = options.Name or "Tab"
+    self.Icon = options.Icon
+    self.Components = {}
+    self.Destroyed = false
+
+    local sidebarButton = Utility.Create("TextButton", {
+        Name = "TabButton",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 42),
+        AutoButtonColor = false,
+        Text = "",
+        LayoutOrder = #window.Tabs + 1,
+        ZIndex = 5,
+    }, window.TabList)
+
+    self.SidebarButton = sidebarButton
+
+    local selectedBar = Utility.Create("Frame", {
+        Name = "SelectedBar",
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -4, 0.5, 0),
+        Size = UDim2.fromOffset(3, 20),
+        BackgroundTransparency = 1,
+        ZIndex = 8,
+    }, sidebarButton)
+
+    Utility.Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+    }, selectedBar)
+
+    self.SelectedBar = selectedBar
+
+    local buttonBackground = Utility.Create("Frame", {
+        Name = "Background",
+        Position = UDim2.fromOffset(4, 2),
+        Size = UDim2.new(1, -12, 1, -4),
+        BackgroundTransparency = 1,
+        ZIndex = 5,
+    }, sidebarButton)
+
+    Utility.Create("UICorner", {
+        CornerRadius = UDim.new(0, 9),
+    }, buttonBackground)
+
+    self.ButtonBackground = buttonBackground
+
+    local icon
+
+    if self.Icon then
+        icon = Utility.Create("ImageLabel", {
+            Name = "Icon",
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(12, 11),
+            Size = UDim2.fromOffset(20, 20),
+            Image = self.Icon,
+            ImageTransparency = 0.25,
+            ZIndex = 7,
+        }, buttonBackground)
+
+        self.IconObject = icon
+    end
+
+    local textX = self.Icon and 40 or 14
+
+    local text = MakeLabel(self, buttonBackground, {
+        Name = "Text",
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(textX, 0),
+        Size = UDim2.new(1, -textX - 8, 1, 0),
+        Text = self.Name,
+        TextSize = 13,
+        Font = Library.Font,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 7,
+    }, "Text")
+
+    self.TextObject = text
+
+    self:BindTheme(selectedBar, "BackgroundColor3", "Accent")
+    self:BindTheme(buttonBackground, "BackgroundColor3", "Element")
+
+    buttonBackground.BackgroundTransparency = 1
+
+    local page = Utility.Create("ScrollingFrame", {
+        Name = self.Name .. "_Page",
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 1),
+        CanvasSize = UDim2.new(),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollBarThickness = 3,
+        ScrollBarImageTransparency = 0.35,
+        ScrollingDirection = Enum.ScrollingDirection.Y,
+        Visible = false,
+        ZIndex = 2,
+    }, window.Content)
+
+    componentStyle = Component.new(window.Library, window, page)
+
+    StyleFrame(componentStyle, page, "Background", 1)
+
+    local padding = Utility.Create("UIPadding", {
+        PaddingTop = UDim.new(0, 8),
+        PaddingBottom = UDim.new(0, 18),
+        PaddingLeft = UDim.new(0, 4),
+        PaddingRight = UDim.new(0, 8),
+    }, page)
+
+    local list = Utility.Create("UIListLayout", {
+        Padding = UDim.new(0, 10),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, page)
+
+    self.Page = page
+    self.List = list
+    self.PageComponent = componentStyle
+
+    sidebarButton.MouseEnter:Connect(function()
+        if self.Window.ActiveTab == self then
+            return
+        end
+
+        if window.Library.AnimationsEnabled then
+            AnimationManager:Tween(buttonBackground, {
+                BackgroundTransparency = 0.6,
+            })
+        else
+            buttonBackground.BackgroundTransparency = 0.6
+        end
+
+        SoundManager:Play("Hover", 0.35)
+    end)
+
+    sidebarButton.MouseLeave:Connect(function()
+        if self.Window.ActiveTab == self then
+            return
+        end
+
+        if window.Library.AnimationsEnabled then
+            AnimationManager:Tween(buttonBackground, {
+                BackgroundTransparency = 1,
+            })
+        else
+            buttonBackground.BackgroundTransparency = 1
+        end
+    end)
+
+    self:Connect(sidebarButton.Activated)
+
+    sidebarButton.Activated:Connect(function()
+        if self.Destroyed then
+            return
+        end
+
+        window:SelectTab(self)
+    end)
+
+    return self
+end
+
+function Tab:Connect(signal)
+    local connection = signal:Connect(function() end)
+    connection:Disconnect()
+    return connection
+end
+
+function Tab:_registerComponent(component, options)
+    table.insert(self.Components, component)
+
+    if options and options.Configurable ~= false and options.Name then
+        local baseKey = options.Flag or options.Name
+
+        baseKey = tostring(baseKey)
+            :gsub("%s+", "_")
+            :gsub("[^%w_]", "")
+
+        if baseKey == "" then
+            baseKey = "Control_" .. tostring(#self.Components)
+        end
+
+        local original = baseKey
+        local index = 2
+
+        while ConfigManager.Controls[baseKey] do
+            baseKey = original .. "_" .. index
+            index += 1
+        end
+
+        component.ConfigKey = self.Name .. "." .. baseKey
+
+        ConfigManager:Register(component)
+
+        component:AddCleanup(function()
+            ConfigManager:Unregister(component)
+        end)
+    end
+
+    return component
+end
+
+function Tab:AddSection(text)
+    if self.Destroyed then
+        return nil
+    end
+
+    local holder = Component.new(self.Library, self.Window, self.Page)
+
+    holder.Frame = Utility.Create("Frame", {
+        Name = "Section",
+        Size = UDim2.new(1, 0, 0, 27),
+        BackgroundTransparency = 1,
+        LayoutOrder = #self.Components + 1,
+    }, self.Page)
+
+    local line = Utility.Create("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.new(1, -150, 0, 1),
+        BackgroundTransparency = 0,
+    }, holder.Frame)
+
+    holder:BindTheme(line, "BackgroundColor3", "Border")
+
+    local label = MakeLabel(holder, holder.Frame, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(4, 0),
+        Size = UDim2.new(0, 145, 1, 0),
+        Text = tostring(text),
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamBold,
+    }, "TextDark")
+
+    table.insert(self.Components, holder)
+
+    return holder
+end
+
+function Tab:AddLabel(options)
+    options = options or {}
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    local holder = Utility.Create("Frame", {
+        Name = "Label",
+        Size = UDim2.new(1, 0, 0, 32),
+        BackgroundTransparency = 1,
+        LayoutOrder = #self.Components + 1,
+    }, self.Page)
+
+    local label = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(8, 0),
+        Size = UDim2.new(1, -16, 1, 0),
+        Text = options.Text or "",
+        TextSize = options.TextSize or 13,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+    }, "Text")
+
+    component.Frame = holder
+    component.Label = label
+
+    function component:SetText(value)
+        if self.Destroyed then
+            return
+        end
+
+        self.Label.Text = tostring(value or "")
+    end
+
+    function component:GetText()
+        return self.Label.Text
+    end
+
+    table.insert(self.Components, component)
+
+    return component
+end
+
+function Tab:AddParagraph(options)
+    options = options or {}
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    local holder = Utility.Create("Frame", {
+        Name = "Paragraph",
+        Size = UDim2.new(1, 0, 0, 84),
+        BackgroundTransparency = 0,
+        LayoutOrder = #self.Components + 1,
+    }, self.Page)
+
+    StyleFrame(component, holder, "Panel", 0.06)
+    StyleStroke(component, holder, "Border", 0.45)
+
+    local title = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(12, 10),
+        Size = UDim2.new(1, -24, 0, 20),
+        Text = options.Title or "Information",
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamBold,
+    }, "Text")
+
+    local content = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(12, 33),
+        Size = UDim2.new(1, -24, 1, -41),
+        Text = options.Content or "",
+        TextSize = 12,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+    }, "TextDark")
+
+    component.Frame = holder
+    component.Title = title
+    component.Content = content
+
+    function component:SetText(value)
+        self.Content.Text = tostring(value or "")
+    end
+
+    function component:GetText()
+        return self.Content.Text
+    end
+
+    table.insert(self.Components, component)
+
+    return component
+end
+
+----------------------------------------------------------------
+-- Button
+----------------------------------------------------------------
+
+function Tab:AddButton(options)
+    options = options or {}
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    local holder = Utility.Create("TextButton", {
+        Name = "Button",
+        Size = UDim2.new(1, 0, 0, options.Description and 62 or 46),
+        BackgroundTransparency = 0,
+        AutoButtonColor = false,
+        Text = "",
+        LayoutOrder = #self.Components + 1,
+        ClipsDescendants = true,
+    }, self.Page)
+
+    StyleFrame(component, holder, "Element", 0)
+    StyleStroke(component, holder, "Border", 0.35)
+
+    local title = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(14, options.Description and 10 or 0),
+        Size = UDim2.new(1, -28, options.Description and 22 or 46, 0),
+        Text = options.Name or "Button",
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = options.Description and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center,
+    }, "Text")
+
+    local description
+
+    if options.Description then
+        description = MakeLabel(component, holder, {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(14, 33),
+            Size = UDim2.new(1, -28, 20, 0),
+            Text = options.Description,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+        }, "TextDark")
+    end
+
+    local hoverOverlay = Utility.Create("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 20,
+        ClipsDescendants = true,
+    }, holder)
+
+    Utility.Create("UICorner", {
+        CornerRadius = UDim.new(0, 10),
+    }, hoverOverlay)
+
+    component.Frame = holder
+    component.Button = holder
+    component.Enabled = true
+
+    function component:SetEnabled(enabled)
+        self.Enabled = enabled == true
+
+        holder.Active = self.Enabled
+        holder.AutoButtonColor = false
+
+        if self.Enabled then
+            component:BindTheme(holder, "BackgroundColor3", "Element")
+            title.TextTransparency = 0
+        else
+            title.TextTransparency = 0.55
+        end
+    end
+
+    function component:GetEnabled()
+        return self.Enabled
+    end
+
+    holder.MouseEnter:Connect(function()
+        if component.Destroyed or not component.Enabled then
+            return
+        end
+
+        if Library.AnimationsEnabled then
+            AnimationManager:Tween(holder, {
+                Size = UDim2.new(1, 2, 0, options.Description and 63 or 47),
+            })
+
+            local color = ThemeManager:GetColor("ElementHover")
+
+            AnimationManager:Tween(holder, {
+                BackgroundColor3 = color,
+            })
+        else
+            holder.BackgroundColor3 = ThemeManager:GetColor("ElementHover")
+        end
+
+        SoundManager:Play("Hover", 0.3)
+    end)
+
+    holder.MouseLeave:Connect(function()
+        if component.Destroyed or not component.Enabled then
+            return
+        end
+
+        if Library.AnimationsEnabled then
+            AnimationManager:Tween(holder, {
+                Size = UDim2.new(1, 0, 0, options.Description and 62 or 46),
+                BackgroundColor3 = ThemeManager:GetColor("Element"),
+            })
+        else
+            holder.Size = UDim2.new(1, 0, 0, options.Description and 62 or 46)
+            holder.BackgroundColor3 = ThemeManager:GetColor("Element")
+        end
+    end)
+
+    holder.InputBegan:Connect(function(input)
+        if component.Destroyed or not component.Enabled then
+            return
+        end
+
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then
+
+            return
+        end
+
+        SoundManager:Play("Click", 0.45)
+
+        local ripple = Utility.Create("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 0.65,
+            Position = UDim2.fromOffset(
+                input.Position.X - holder.AbsolutePosition.X,
+                input.Position.Y - holder.AbsolutePosition.Y
+            ),
+            Size = UDim2.fromOffset(4, 4),
+            ZIndex = 30,
+        }, hoverOverlay)
+
+        component:BindTheme(ripple, "BackgroundColor3", "Accent")
+
+        Utility.Create("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+        }, ripple)
+
+        local targetSize = math.max(
+            holder.AbsoluteSize.X,
+            holder.AbsoluteSize.Y
+        ) * 2
+
+        local tween = AnimationManager:Tween(ripple, {
+            Size = UDim2.fromOffset(targetSize, targetSize),
+            BackgroundTransparency = 1,
+        }, "Sine")
+
+        if tween then
+            tween.Completed:Once(function()
+                if ripple and ripple.Parent then
+                    ripple:Destroy()
+                end
+            end)
+        else
+            ripple:Destroy()
+        end
+    end)
+
+    holder.Activated:Connect(function()
+        if component.Destroyed or not component.Enabled then
+            return
+        end
+
+        component:SafeCallback(options.Callback)
+    end)
+
+    table.insert(self.Components, component)
+
+    return component
+end
+
+----------------------------------------------------------------
+-- Toggle
+----------------------------------------------------------------
+
+function Tab:AddToggle(options)
+    options = options or {}
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    local value = options.Default == true
+
+    local holder = Utility.Create("TextButton", {
+        Name = "Toggle",
+        Size = UDim2.new(1, 0, 0, options.Description and 62 or 52),
+        BackgroundTransparency = 0,
+        AutoButtonColor = false,
+        Text = "",
+        LayoutOrder = #self.Components + 1,
+    }, self.Page)
+
+    StyleFrame(component, holder, "Element", 0)
+    StyleStroke(component, holder, "Border", 0.35)
+
+    local title = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(14, options.Description and 10 or 0),
+        Size = UDim2.new(1, -80, options.Description and 22 or 52, 0),
+        Text = options.Name or "Toggle",
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = options.Description and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center,
+    }, "Text")
+
+    if options.Description then
+        MakeLabel(component, holder, {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(14, 34),
+            Size = UDim2.new(1, -80, 18, 0),
+            Text = options.Description,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+        }, "TextDark")
+    end
+
+    local switch = Utility.Create("Frame", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -14, 0.5, 0),
+        Size = UDim2.fromOffset(42, 23),
+        BackgroundTransparency = 0,
+    }, holder)
+
+    StyleFrame(component, switch, "Border", 0)
+
+    local knob = Utility.Create("Frame", {
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 3, 0.5, 0),
+        Size = UDim2.fromOffset(17, 17),
+        BackgroundTransparency = 0,
+    }, switch)
+
+    StyleFrame(component, knob, "Text", 0)
+
+    component.Value = value
+    component.Frame = holder
+    component.Switch = switch
+    component.Knob = knob
+    component.Title = title
+    component.Configurable = options.Configurable ~= false
+
+    local switchUnbind = component:BindTheme(
+        switch,
+        "BackgroundColor3",
+        value and "Accent" or "Border"
+    )
+
+    local knobUnbind = component:BindTheme(
+        knob,
+        "BackgroundColor3",
+        "Text"
+    )
+
+    component._refreshVisual = function()
+        if component.Destroyed then
+            return
+        end
+
+        local accent = ThemeManager:GetColor("Accent")
+        local border = ThemeManager:GetColor("Border")
+
+        if Library.AnimationsEnabled then
+            AnimationManager:Tween(switch, {
+                BackgroundColor3 = component.Value and accent or border,
+            })
+
+            AnimationManager:Tween(knob, {
+                Position = component.Value
+                    and UDim2.new(1, -20, 0.5, 0)
+                    or UDim2.new(0, 3, 0.5, 0),
+            })
+        else
+            switch.BackgroundColor3 = component.Value and accent or border
+            knob.Position = component.Value
+                and UDim2.new(1, -20, 0.5, 0)
+                or UDim2.new(0, 3, 0.5, 0)
+        end
+    end
+
+    function component:SetValue(newValue, fireCallback)
+        if self.Destroyed then
+            return
+        end
+
+        self.Value = newValue == true
+
+        self._refreshVisual()
+
+        if fireCallback ~= false then
+            self:SafeCallback(options.Callback, self.Value)
+        end
+
+        ConfigManager:QueueAutoSave()
+    end
+
+    function component:GetValue()
+        return self.Value
+    end
+
+    holder.Activated:Connect(function()
+        if component.Destroyed then
+            return
+        end
+
+        SoundManager:Play("Click", 0.4)
+        component:SetValue(not component.Value)
+    end)
+
+    table.insert(self.Components, component)
+
+    component:_refreshVisual()
+
+    return component
+end
+
+----------------------------------------------------------------
+-- Slider
+----------------------------------------------------------------
+
+function Tab:AddSlider(options)
+    options = options or {}
+
+    local minValue = tonumber(options.Min) or 0
+    local maxValue = tonumber(options.Max) or 100
+
+    if maxValue <= minValue then
+        maxValue = minValue + 1
+    end
+
+    local rounding = math.max(0, tonumber(options.Rounding) or 0)
+    local suffix = tostring(options.Suffix or "")
+    local value = tonumber(options.Default) or minValue
+
+    value = Utility.Clamp(value, minValue, maxValue)
+    value = Utility.Round(value, rounding)
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    local holder = Utility.Create("Frame", {
+        Name = "Slider",
+        Size = UDim2.new(1, 0, 0, 78),
+        BackgroundTransparency = 0,
+        LayoutOrder = #self.Components + 1,
+    }, self.Page)
+
+    StyleFrame(component, holder, "Element", 0)
+    StyleStroke(component, holder, "Border", 0.35)
+
+    local title = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(14, 9),
+        Size = UDim2.new(1, -100, 0, 20),
+        Text = options.Name or "Slider",
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, "Text")
+
+    local valueLabel = MakeLabel(component, holder, {
+        AnchorPoint = Vector2.new(1, 0),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -14, 0, 9),
+        Size = UDim2.fromOffset(80, 20),
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Right,
+    }, "TextDark")
+
+    local track = Utility.Create("Frame", {
+        Position = UDim2.new(0, 14, 0, 44),
+        Size = UDim2.new(1, -28, 0, 6),
+        BackgroundTransparency = 0,
+    }, holder)
+
+    StyleFrame(component, track, "Border", 0)
+
+    local fill = Utility.Create("Frame", {
+        Size = UDim2.fromScale(0, 1),
+        BackgroundTransparency = 0,
+    }, track)
+
+    Utility.Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+    }, fill)
+
+    component:BindTheme(fill, "BackgroundColor3", "Accent")
+
+    local knob = Utility.Create("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.fromOffset(16, 16),
+        BackgroundTransparency = 0,
+    }, track)
+
+    StyleFrame(component, knob, "Accent", 0)
+
+    component.Frame = holder
+    component.Value = value
+
+    local dragging = false
+
+    local function refresh(instant)
+        local percent = (component.Value - minValue) / (maxValue - minValue)
+        percent = math.clamp(percent, 0, 1)
+
+        valueLabel.Text = tostring(component.Value) .. suffix
+
+        local targetFill = UDim2.new(percent, 0, 1, 0)
+        local targetKnob = UDim2.new(percent, 0, 0.5, 0)
+
+        if instant or not Library.AnimationsEnabled then
+            fill.Size = targetFill
+            knob.Position = targetKnob
+        else
+            AnimationManager:Tween(fill, {
+                Size = targetFill,
+            })
+
+            AnimationManager:Tween(knob, {
+                Position = targetKnob,
+            })
+        end
+    end
+
+    function component:SetValue(newValue, fireCallback)
+        if self.Destroyed then
+            return
+        end
+
+        newValue = tonumber(newValue)
+
+        if not newValue then
+            return
+        end
+
+        newValue = Utility.Clamp(newValue, minValue, maxValue)
+        newValue = Utility.Round(newValue, rounding)
+
+        self.Value = newValue
+
+        refresh(false)
+
+        if fireCallback ~= false then
+            self:SafeCallback(options.Callback, self.Value)
+        end
+
+        ConfigManager:QueueAutoSave()
+    end
+
+    function component:GetValue()
+        return self.Value
+    end
+
+    local function setFromPosition(x)
+        if component.Destroyed then
+            return
+        end
+
+        local absolute = track.AbsolutePosition.X
+        local width = track.AbsoluteSize.X
+
+        local percent = (x - absolute) / width
+
+        percent = math.clamp(percent, 0, 1)
+
+        local newValue = minValue
+            + ((maxValue - minValue) * percent)
+
+        component:SetValue(newValue)
+    end
+
+    track.InputBegan:Connect(function(input)
+        if component.Destroyed then
+            return
+        end
+
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            dragging = true
+
+            SoundManager:Play("Click", 0.3)
+
+            setFromPosition(input.Position.X)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if component.Destroyed or not dragging then
+            return
+        end
+
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            setFromPosition(input.Position.X)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            dragging = false
+        end
+    end)
+
+    table.insert(self.Components, component)
+
+    refresh(true)
+
+    return component
+end
+
+----------------------------------------------------------------
+-- Dropdown
+----------------------------------------------------------------
+
+function Tab:AddDropdown(options)
+    options = options or {}
+
+    local multi = options.Multi == true
+    local optionsList = {}
+
+    for _, item in ipairs(options.Options or {}) do
+        table.insert(optionsList, tostring(item))
+    end
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    component.Multi = multi
+    component.Options = optionsList
+    component.Value = multi and {} or tostring(options.Default or optionsList[1] or "")
+
+    local holder = Utility.Create("Frame", {
+        Name = "Dropdown",
+        Size = UDim2.new(1, 0, 0, options.Description and 76 or 64),
+        BackgroundTransparency = 0,
+        LayoutOrder = #self.Components + 1,
+        ZIndex = 5,
+    }, self.Page)
+
+    StyleFrame(component, holder, "Element", 0)
+    StyleStroke(component, holder, "Border", 0.35)
+
+    local title = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(14, options.Description and 9 or 7),
+        Size = UDim2.new(1, -30, 0, 18),
+        Text = options.Name or "Dropdown",
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 6,
+    }, "Text")
+
+    local description
+
+    if options.Description then
+        description = MakeLabel(component, holder, {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(14, 29),
+            Size = UDim2.new(1, -30, 0, 17),
+            Text = options.Description,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 6,
+        }, "TextDark")
+    end
+
+    local selector = Utility.Create("TextButton", {
+        BackgroundTransparency = 0,
+        Position = UDim2.new(0, 10, 1, -37),
+        Size = UDim2.new(1, -20, 0, 30),
+        AutoButtonColor = false,
+        Text = "",
+        ZIndex = 7,
+    }, holder)
+
+    StyleFrame(component, selector, "Panel", 0)
+    StyleStroke(component, selector, "Border", 0.25)
+
+    local selectedText = MakeLabel(component, selector, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(10, 0),
+        Size = UDim2.new(1, -36, 1, 0),
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 8,
+    }, "TextDark")
+
+    local arrow = MakeLabel(component, selector, {
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -10, 0.5, 0),
+        Size = UDim2.fromOffset(18, 18),
+        Text = "⌄",
+        TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 8,
+    }, "TextDark")
+
+    component.Frame = holder
+    component.Selector = selector
+    component.SelectedText = selectedText
+    component.Arrow = arrow
+    component.Open = false
+
+    local popup
+    local searchBox
+    local listFrame
+    local popupLayout
+    local outsideConnection
+    local positionConnections = {}
+
+    local function getDisplayValue()
+        if component.Multi then
+            local values = {}
+
+            for _, option in ipairs(component.Options) do
+                if component.Value[option] then
+                    table.insert(values, option)
+                end
+            end
+
+            if #values == 0 then
+                return "None"
+            end
+
+            return table.concat(values, ", ")
+        end
+
+        if component.Value == "" then
+            return "Select..."
+        end
+
+        return tostring(component.Value)
+    end
+
+    local function updateDisplay()
+        selectedText.Text = getDisplayValue()
+    end
+
+    local function clearPositionConnections()
+        for _, connection in ipairs(positionConnections) do
+            pcall(function()
+                connection:Disconnect()
+            end)
+        end
+
+        table.clear(positionConnections)
+    end
+
+    local function positionPopup()
+        if not popup or not popup.Parent then
+            return
+        end
+
+        local absolutePosition = selector.AbsolutePosition
+        local absoluteSize = selector.AbsoluteSize
+
+        popup.Position = UDim2.fromOffset(
+            absolutePosition.X,
+            absolutePosition.Y + absoluteSize.Y + 6
+        )
+
+        popup.Size = UDim2.fromOffset(
+            math.max(220, absoluteSize.X),
+            popup.Size.Y.Offset
+        )
+    end
+
+    local function closeDropdown()
+        if not component.Open then
+            return
+        end
+
+        component.Open = false
+
+        if outsideConnection then
+            outsideConnection:Disconnect()
+            outsideConnection = nil
+        end
+
+        clearPositionConnections()
+
+        if popup then
+            if Library.AnimationsEnabled then
+                local tween = AnimationManager:Tween(popup, {
+                    Size = UDim2.fromOffset(popup.AbsoluteSize.X, 0),
+                    BackgroundTransparency = 1,
+                }, "Sine")
+
+                if tween then
+                    tween.Completed:Once(function()
+                        if popup and popup.Parent then
+                            popup:Destroy()
+                        end
+                    end)
+                end
+            else
+                popup:Destroy()
+            end
+        end
+
+        popup = nil
+
+        arrow.Text = "⌄"
+        SoundManager:Play("Dropdown", 0.35)
+    end
+
+    local function openDropdown()
+        if component.Destroyed then
+            return
+        end
+
+        if component.Open then
+            closeDropdown()
+            return
+        end
+
+        if self.Window.OpenDropdown and self.Window.OpenDropdown ~= component then
+            pcall(function()
+                self.Window.OpenDropdown:_close()
+            end)
+        end
+
+        self.Window.OpenDropdown = component
+        component.Open = true
+
+        local overlay = self.Window.PopupLayer
+
+        popup = Utility.Create("Frame", {
+            Name = "DropdownPopup",
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.fromOffset(selector.AbsoluteSize.X, 0),
+            ZIndex = 200,
+        }, overlay)
+
+        StyleFrame(component, popup, "Panel", 0)
+        StyleStroke(component, popup, "Border", 0.15)
+
+        Utility.Create("UIPadding", {
+            PaddingTop = UDim.new(0, 7),
+            PaddingBottom = UDim.new(0, 7),
+            PaddingLeft = UDim.new(0, 7),
+            PaddingRight = UDim.new(0, 7),
+        }, popup)
+
+        searchBox = Utility.Create("TextBox", {
+            Name = "Search",
+            BackgroundTransparency = 0,
+            Size = UDim2.new(1, 0, 0, 30),
+            PlaceholderText = "Search...",
+            PlaceholderColor3 = ThemeManager:GetColor("TextDark"),
+            Text = "",
+            ClearTextOnFocus = false,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 202,
+        }, popup)
+
+        StyleFrame(component, searchBox, "Element", 0)
+        StyleStroke(component, searchBox, "Border", 0.35)
+
+        component:BindTheme(searchBox, "TextColor3", "Text")
+        component:BindTheme(searchBox, "PlaceholderColor3", "TextDark")
+
+        component:BindFont(searchBox)
+
+        Utility.Create("UIPadding", {
+            PaddingLeft = UDim.new(0, 9),
+            PaddingRight = UDim.new(0, 9),
+        }, searchBox)
+
+        listFrame = Utility.Create("ScrollingFrame", {
+            Name = "Options",
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(0, 36),
+            Size = UDim2.new(1, 0, 1, -36),
+            CanvasSize = UDim2.new(),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollBarThickness = 3,
+            ScrollBarImageTransparency = 0.4,
+            ZIndex = 202,
+        }, popup)
+
+        popupLayout = Utility.Create("UIListLayout", {
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+        }, listFrame)
+
+        local function selected(option)
+            if component.Multi then
+                return component.Value[option] == true
+            end
+
+            return component.Value == option
+        end
+
+        local function makeOption(option, index)
+            local item = Utility.Create("TextButton", {
+                Name = "Option",
+                BackgroundTransparency = 0,
+                Size = UDim2.new(1, -4, 0, 32),
+                AutoButtonColor = false,
+                Text = "",
+                LayoutOrder = index,
+                ZIndex = 203,
+            }, listFrame)
+
+            StyleFrame(component, item, "Element", 0)
+
+            local label = MakeLabel(component, item, {
+                BackgroundTransparency = 1,
+                Position = UDim2.fromOffset(9, 0),
+                Size = UDim2.new(1, -32, 1, 0),
+                Text = option,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 204,
+            }, selected(option) and "Text" or "TextDark")
+
+            local check = MakeLabel(component, item, {
+                AnchorPoint = Vector2.new(1, 0.5),
+                BackgroundTransparency = 1,
+                Position = UDim2.new(1, -9, 0.5, 0),
+                Size = UDim2.fromOffset(16, 16),
+                Text = selected(option) and "✓" or "",
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                ZIndex = 204,
+            }, "Accent")
+
+            item.MouseEnter:Connect(function()
+                if item.Parent then
+                    item.BackgroundColor3 = ThemeManager:GetColor("ElementHover")
+                end
+            end)
+
+            item.MouseLeave:Connect(function()
+                if item.Parent then
+                    item.BackgroundColor3 = ThemeManager:GetColor("Element")
+                end
+            end)
+
+            item.Activated:Connect(function()
+                if component.Destroyed then
+                    return
+                end
+
+                SoundManager:Play("Click", 0.35)
+
+                if component.Multi then
+                    component.Value[option] = not component.Value[option]
+                else
+                    component.Value = option
+                    closeDropdown()
+                end
+
+                updateDisplay()
+
+                if component.Multi then
+                    component:SafeCallback(options.Callback, component.Value)
+                else
+                    component:SafeCallback(options.Callback, component.Value)
+                end
+
+                ConfigManager:QueueAutoSave()
+
+                if component.Multi then
+                    closeDropdown()
+                end
+            end)
+
+            return item, label, check
+        end
+
+        for index, option in ipairs(component.Options) do
+            makeOption(option, index)
+        end
+
+        local function applyFilter()
+            local query = string.lower(searchBox.Text)
+
+            for _, child in ipairs(listFrame:GetChildren()) do
+                if child:IsA("TextButton") then
+                    local matches = query == ""
+                        or string.find(
+                            string.lower(child:FindFirstChildOfClass("TextLabel") and child:FindFirstChildOfClass("TextLabel").Text or ""),
+                            query,
+                            1,
+                            true
+                        ) ~= nil
+
+                    child.Visible = matches
+                end
+            end
+        end
+
+        searchBox:GetPropertyChangedSignal("Text"):Connect(applyFilter)
+
+        outsideConnection = UserInputService.InputBegan:Connect(function(input)
+            if component.Destroyed or not component.Open then
+                return
+            end
+
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+
+                return
+            end
+
+            local position = input.Position
+
+            if Utility.PointInside(popup, position)
+                or Utility.PointInside(selector, position) then
+
+                return
+            end
+
+            closeDropdown()
+        end)
+
+        table.insert(positionConnections, selector:GetPropertyChangedSignal("AbsolutePosition"):Connect(positionPopup))
+        table.insert(positionConnections, selector:GetPropertyChangedSignal("AbsoluteSize"):Connect(positionPopup))
+        table.insert(positionConnections, self.Window.Root:GetPropertyChangedSignal("AbsolutePosition"):Connect(positionPopup))
+
+        if self.Page then
+            table.insert(positionConnections, self.Page:GetPropertyChangedSignal("CanvasPosition"):Connect(positionPopup))
+        end
+
+        positionPopup()
+
+        local targetHeight = math.min(
+            300,
+            48 + math.max(32, math.min(#component.Options * 36, 230))
+        )
+
+        if Library.AnimationsEnabled then
+            AnimationManager:Tween(popup, {
+                Size = UDim2.fromOffset(popup.AbsoluteSize.X, targetHeight),
+            }, "Sine")
+        else
+            popup.Size = UDim2.fromOffset(
+                popup.AbsoluteSize.X,
+                targetHeight
+            )
+        end
+
+        arrow.Text = "⌃"
+
+        SoundManager:Play("Dropdown", 0.35)
+    end
+
+    component._close = closeDropdown
+
+    function component:SetOptions(newOptions)
+        if self.Destroyed then
+            return
+        end
+
+        closeDropdown()
+
+        self.Options = {}
+
+        for _, item in ipairs(newOptions or {}) do
+            table.insert(self.Options, tostring(item))
+        end
+
+        if self.Multi then
+            local newValues = {}
+
+            for option in pairs(self.Value) do
+                if table.find(self.Options, option) then
+                    newValues[option] = true
+                end
+            end
+
+            self.Value = newValues
+        else
+            if not table.find(self.Options, self.Value) then
+                self.Value = self.Options[1] or ""
+            end
+        end
+
+        updateDisplay()
+    end
+
+    function component:Refresh()
+        self:SetOptions(self.Options)
+    end
+
+    function component:SetValue(newValue, fireCallback)
+        if self.Destroyed then
+            return
+        end
+
+        if self.Multi then
+            local newValues = {}
+
+            if type(newValue) == "table" then
+                if #newValue > 0 then
+                    for _, item in ipairs(newValue) do
+                        local key = tostring(item)
+
+                        if table.find(self.Options, key) then
+                            newValues[key] = true
+                        end
+                    end
+                else
+                    for key, enabled in pairs(newValue) do
+                        if enabled and table.find(self.Options, tostring(key)) then
+                            newValues[tostring(key)] = true
+                        end
+                    end
+                end
+            end
+
+            self.Value = newValues
+        else
+            newValue = tostring(newValue or "")
+
+            if table.find(self.Options, newValue) then
+                self.Value = newValue
+            end
+        end
+
+        updateDisplay()
+
+        if fireCallback ~= false then
+            self:SafeCallback(options.Callback, self.Value)
+        end
+
+        ConfigManager:QueueAutoSave()
+    end
+
+    function component:GetValue()
+        if self.Multi then
+            return Utility.ShallowCopy(self.Value)
+        end
+
+        return self.Value
+    end
+
+    function component:Destroy()
+        if self.Destroyed then
+            return
+        end
+
+        closeDropdown()
+
+        Component.Destroy(self)
+
+        if self.Frame and self.Frame.Parent then
+            self.Frame:Destroy()
+        end
+    end
+
+    selector.Activated:Connect(function()
+        openDropdown()
+    end)
+
+    updateDisplay()
+
+    table.insert(self.Components, component)
+
+    return component
+end
+
+----------------------------------------------------------------
+-- Textbox
+----------------------------------------------------------------
+
+function Tab:AddTextbox(options)
+    options = options or {}
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    local holder = Utility.Create("Frame", {
+        Name = "Textbox",
+        Size = UDim2.new(1, 0, 0, options.Description and 76 or 62),
+        BackgroundTransparency = 0,
+        LayoutOrder = #self.Components + 1,
+    }, self.Page)
+
+    StyleFrame(component, holder, "Element", 0)
+    StyleStroke(component, holder, "Border", 0.35)
+
+    local title = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(14, options.Description and 8 or 7),
+        Size = UDim2.new(1, -28, 0, 18),
+        Text = options.Name or "Textbox",
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, "Text")
+
+    if options.Description then
+        MakeLabel(component, holder, {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(14, 28),
+            Size = UDim2.new(1, -28, 0, 16),
+            Text = options.Description,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+        }, "TextDark")
+    end
+
+    local inputHeight = options.Description and 30 or 30
+
+    local textBox = Utility.Create("TextBox", {
+        BackgroundTransparency = 0,
+        Position = UDim2.new(0, 10, 1, -inputHeight - 8),
+        Size = UDim2.new(1, -20, 0, inputHeight),
+        Text = tostring(options.Default or ""),
+        PlaceholderText = options.Placeholder or "",
+        ClearTextOnFocus = options.ClearOnFocus == true,
+        MultiLine = options.MultiLine == true,
+        TextWrapped = options.MultiLine == true,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, holder)
+
+    if options.MultiLine then
+        textBox.TextYAlignment = Enum.TextYAlignment.Top
+    else
+        textBox.TextYAlignment = Enum.TextYAlignment.Center
+    end
+
+    StyleFrame(component, textBox, "Panel", 0)
+    StyleStroke(component, textBox, "Border", 0.25)
+    component:BindTheme(textBox, "TextColor3", "Text")
+    component:BindTheme(textBox, "PlaceholderColor3", "TextDark")
+    component:BindFont(textBox)
+
+    Utility.Create("UIPadding", {
+        PaddingLeft = UDim.new(0, 9),
+        PaddingRight = UDim.new(0, 9),
+    }, textBox)
+
+    component.Frame = holder
+    component.TextBox = textBox
+    component.Value = textBox.Text
+
+    local passwordOverlay
+
+    if options.Password then
+        textBox.TextTransparency = 1
+
+        passwordOverlay = MakeLabel(component, textBox.Parent, {
+            BackgroundTransparency = 1,
+            Position = textBox.Position,
+            Size = textBox.Size,
+            Text = "",
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            ZIndex = textBox.ZIndex + 1,
+        }, "Text")
+
+        Utility.Create("UIPadding", {
+            PaddingLeft = UDim.new(0, 9),
+            PaddingRight = UDim.new(0, 9),
+        }, passwordOverlay)
+
+        component.PasswordOverlay = passwordOverlay
+
+        local function refreshPassword()
+            local current = textBox.Text
+            passwordOverlay.Text = string.rep("•", #current)
+        end
+
+        textBox:GetPropertyChangedSignal("Text"):Connect(refreshPassword)
+
+        refreshPassword()
+    end
+
+    function component:SetValue(value, fireCallback)
+        if self.Destroyed then
+            return
+        end
+
+        textBox.Text = tostring(value or "")
+        self.Value = textBox.Text
+
+        if passwordOverlay then
+            passwordOverlay.Text = string.rep("•", #textBox.Text)
+        end
+
+        if fireCallback ~= false then
+            self:SafeCallback(options.Callback, self.Value)
+        end
+
+        ConfigManager:QueueAutoSave()
+    end
+
+    function component:GetValue()
+        return textBox.Text
+    end
+
+    textBox.FocusLost:Connect(function()
+        if component.Destroyed then
+            return
+        end
+
+        component.Value = textBox.Text
+        component:SafeCallback(options.Callback, component.Value)
+
+        ConfigManager:QueueAutoSave()
+    end)
+
+    table.insert(self.Components, component)
+
+    return component
+end
+
+----------------------------------------------------------------
+-- Image
+----------------------------------------------------------------
+
+function Tab:AddImage(options)
+    options = options or {}
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    local height = tonumber(options.Height) or 180
+
+    local holder = Utility.Create("Frame", {
+        Name = "Image",
+        Size = UDim2.new(1, 0, 0, height + 14),
+        BackgroundTransparency = 0,
+        LayoutOrder = #self.Components + 1,
+    }, self.Page)
+
+    StyleFrame(component, holder, "Element", 0)
+    StyleStroke(component, holder, "Border", 0.35)
+
+    local title
+
+    if options.Name then
+        title = MakeLabel(component, holder, {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(12, 6),
+            Size = UDim2.new(1, -24, 0, 20),
+            Text = tostring(options.Name),
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+        }, "Text")
+    end
+
+    local imageY = options.Name and 29 or 7
+    local imageHeight = height - (options.Name and 22 or 0)
+
+    local imageFrame = Utility.Create("Frame", {
+        BackgroundTransparency = 0,
+        Position = UDim2.fromOffset(7, imageY),
+        Size = UDim2.new(1, -14, 0, imageHeight),
+        ClipsDescendants = true,
+    }, holder)
+
+    StyleFrame(component, imageFrame, "Panel", 0)
+    StyleStroke(component, imageFrame, "Border", 0.3)
+
+    local image = Utility.Create("ImageLabel", {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        Image = tostring(options.Image or ""),
+        ScaleType = options.ScaleType or Enum.ScaleType.Crop,
+    }, imageFrame)
+
+    Utility.Create("UICorner", {
+        CornerRadius = UDim.new(0, 8),
+    }, image)
+
+    local placeholder = MakeLabel(component, imageFrame, {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        Text = "Image",
+        TextSize = 12,
+        Visible = options.Image == nil or options.Image == "",
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+    }, "TextDark")
+
+    component.Frame = holder
+    component.ImageFrame = imageFrame
+    component.Image = image
+
+    local function setImage(value)
+        value = tostring(value or "")
+
+        image.Image = value
+        placeholder.Visible = value == ""
+
+        if value ~= "" then
+            task.spawn(function()
+                pcall(function()
+                    ContentProvider:PreloadAsync({image})
+                end)
+            end)
+        end
+    end
+
+    function component:SetImage(value)
+        if self.Destroyed then
+            return
+        end
+
+        setImage(value)
+    end
+
+    function component:GetImage()
+        return image.Image
+    end
+
+    table.insert(self.Components, component)
+
+    return component
+end
+
+----------------------------------------------------------------
+-- Keybind
+----------------------------------------------------------------
+
+function Tab:AddKeybind(options)
+    options = options or {}
+
+    local component = Component.new(self.Library, self.Window, self.Page)
+
+    local holder = Utility.Create("TextButton", {
+        Name = "Keybind",
+        Size = UDim2.new(1, 0, 0, options.Description and 62 or 50),
+        BackgroundTransparency = 0,
+        AutoButtonColor = false,
+        Text = "",
+        LayoutOrder = #self.Components + 1,
+    }, self.Page)
+
+    StyleFrame(component, holder, "Element", 0)
+    StyleStroke(component, holder, "Border", 0.35)
+
+    local title = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(14, options.Description and 9 or 0),
+        Size = UDim2.new(1, -100, options.Description and 22 or 50, 0),
+        Text = options.Name or "Keybind",
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = options.Description and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center,
+    }, "Text")
+
+    if options.Description then
+        MakeLabel(component, holder, {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(14, 33),
+            Size = UDim2.new(1, -100, 18, 0),
+            Text = options.Description,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+        }, "TextDark")
+    end
+
+    local badge = Utility.Create("Frame", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -12, 0.5, 0),
+        Size = UDim2.fromOffset(76, 28),
+        BackgroundTransparency = 0,
+    }, holder)
+
+    StyleFrame(component, badge, "Panel", 0)
+    StyleStroke(component, badge, "Border", 0.3)
+
+    local badgeText = MakeLabel(component, badge, {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+    }, "TextDark")
+
+    component.Frame = holder
+    component.Badge = badgeText
+    component.Value = options.Default or Enum.KeyCode.Unknown
+    component.Capturing = false
+
+    local function formatKey(key)
+        if typeof(key) ~= "EnumItem" then
+            return "None"
+        end
+
+        if key.EnumType == Enum.KeyCode then
+            return key.Name
+        end
+
+        if key.EnumType == Enum.UserInputType then
+            local mapping = {
+                MouseButton1 = "Mouse1",
+                MouseButton2 = "Mouse2",
+                MouseButton3 = "Mouse3",
+            }
+
+            return mapping[key.Name] or key.Name
+        end
+
+        return key.Name
+    end
+
+    local function validInput(input)
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            return input.KeyCode ~= Enum.KeyCode.Unknown
+        end
+
+        return input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.MouseButton2
+    end
+
+    local function fireChange()
+        component:SafeCallback(options.OnChanged, component.Value)
+    end
+
+    local function setKey(key, fireCallback)
+        if typeof(key) ~= "EnumItem" then
+            return
+        end
+
+        component.Value = key
+        badgeText.Text = formatKey(key)
+
+        if fireCallback ~= false then
+            fireChange()
+        end
+
+        ConfigManager:QueueAutoSave()
+    end
+
+    function component:SetKey(key, fireCallback)
+        setKey(key, fireCallback)
+    end
+
+    function component:GetKey()
+        return self.Value
+    end
+
+    function component:SetValue(key, fireCallback)
+        setKey(key, fireCallback)
+    end
+
+    function component:GetValue()
+        return self.Value
+    end
+
+    holder.Activated:Connect(function()
+        if component.Destroyed then
+            return
+        end
+
+        component.Capturing = true
+        badgeText.Text = "Press key..."
+        SoundManager:Play("Click", 0.35)
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if component.Destroyed or not component.Capturing then
+            return
+        end
+
+        if gameProcessed then
+            return
+        end
+
+        if not validInput(input) then
+            return
+        end
+
+        component.Capturing = false
+
+        local key
+
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            key = input.KeyCode
+        else
+            key = input.UserInputType
+        end
+
+        setKey(key, true)
+        SoundManager:Play("Click", 0.35)
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if component.Destroyed
+            or component.Capturing
+            or gameProcessed then
+
+            return
+        end
+
+        local matches = false
+
+        if component.Value.EnumType == Enum.KeyCode then
+            matches = input.UserInputType == Enum.UserInputType.Keyboard
+                and input.KeyCode == component.Value
+        elseif component.Value.EnumType == Enum.UserInputType then
+            matches = input.UserInputType == component.Value
+        end
+
+        if matches then
+            component:SafeCallback(options.Callback, component.Value)
+        end
+    end)
+
+    badgeText.Text = formatKey(component.Value)
+
+    table.insert(self.Components, component)
+
+    return component
+end
+
+----------------------------------------------------------------
+-- Window
+----------------------------------------------------------------
+
+local Window = {}
+Window.__index = Window
+
+function Window:_setTitle(title, subtitle)
+    self.TitleLabel.Text = tostring(title or self.TitleLabel.Text)
+
+    if subtitle ~= nil then
+        self.SubtitleLabel.Text = tostring(subtitle)
+    end
+end
+
+function Window:SetToggleKey(key)
+    if typeof(key) ~= "EnumItem" then
+        return
+    end
+
+    if key.EnumType ~= Enum.KeyCode then
+        return
+    end
+
+    self.ToggleKey = key
+end
+
+function Window:SelectTab(tab)
+    if self.Destroyed or tab.Destroyed then
+        return
+    end
+
+    if self.ActiveTab == tab then
+        return
+    end
+
+    if self.ActiveTab then
+        self.ActiveTab.Page.Visible = false
+        self.ActiveTab.SelectedBar.BackgroundTransparency = 1
+        self.ActiveTab.ButtonBackground.BackgroundTransparency = 1
+    end
+
+    self.ActiveTab = tab
+
+    tab.Page.Visible = true
+    tab.SelectedBar.BackgroundTransparency = 0
+
+    if Library.AnimationsEnabled then
+        AnimationManager:Tween(tab.ButtonBackground, {
+            BackgroundTransparency = 0.65,
+        })
+    else
+        tab.ButtonBackground.BackgroundTransparency = 0.65
+    end
+
+    SoundManager:Play("Click", 0.25)
+end
+
+function Window:AddTab(options)
+    if self.Destroyed then
+        return nil
+    end
+
+    options = options or {}
+
+    local tab = Tab.new(self, options)
+
+    table.insert(self.Tabs, tab)
+
+    if not self.ActiveTab then
+        self:SelectTab(tab)
+    end
+
+    return tab
+end
+
+function Window:Minimize()
+    if self.Destroyed or self.Minimized then
+        return
+    end
+
+    self.Minimized = true
+
+    if self.Library.AnimationsEnabled then
+        AnimationManager:Tween(self.Root, {
+            Size = UDim2.fromOffset(self.OriginalSize.X.Offset, 62),
+        }, "Sine")
+
+        self.Content.Visible = false
+        self.Sidebar.Visible = false
+    else
+        self.Root.Size = UDim2.fromOffset(self.OriginalSize.X.Offset, 62)
+        self.Content.Visible = false
+        self.Sidebar.Visible = false
+    end
+end
+
+function Window:Maximize()
+    if self.Destroyed then
+        return
+    end
+
+    self.Minimized = false
+
+    self.Content.Visible = true
+    self.Sidebar.Visible = true
+
+    if self.Library.AnimationsEnabled then
+        AnimationManager:Tween(self.Root, {
+            Size = self.OriginalSize,
+        }, "Sine")
+    else
+        self.Root.Size = self.OriginalSize
+    end
+end
+
+function Window:Toggle()
+    if self.Destroyed then
+        return
+    end
+
+    if self.Root.Visible then
+        self.Root.Visible = false
+    else
+        self.Root.Visible = true
+    end
+end
+
+function Window:Close()
+    if self.Destroyed then
+        return
+    end
+
+    if self.Root.Visible then
+        self.Root.Visible = false
+    end
+end
+
+function Window:Open()
+    if self.Destroyed then
+        return
+    end
+
+    self.Root.Visible = true
+end
+
+function Window:Destroy()
+    if self.Destroyed then
+        return
+    end
+
+    self.Destroyed = true
+
+    if self.OpenDropdown and self.OpenDropdown._close then
+        pcall(function()
+            self.OpenDropdown:_close()
+        end)
+    end
+
+    for _, connection in ipairs(self.Connections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
+
+    table.clear(self.Connections)
+
+    for _, tab in ipairs(self.Tabs) do
+        tab.Destroyed = true
+
+        for _, component in ipairs(tab.Components) do
+            pcall(function()
+                component:Destroy()
+            end)
+        end
+
+        if tab.PageComponent then
+            pcall(function()
+                tab.PageComponent:Destroy()
+            end)
+        end
+
+        pcall(function()
+            if tab.Page and tab.Page.Parent then
+                tab.Page:Destroy()
+            end
+        end)
+
+        pcall(function()
+            if tab.SidebarButton and tab.SidebarButton.Parent then
+                tab.SidebarButton:Destroy()
+            end
+        end)
+    end
+
+    table.clear(self.Tabs)
+
+    if self.Root then
+        self.Root:Destroy()
+    end
+
+    if self.PopupLayer then
+        self.PopupLayer:Destroy()
+    end
+
+    if Library.Windows[self] then
+        Library.Windows[self] = nil
+    end
+end
+
+----------------------------------------------------------------
+-- Window Creation
+----------------------------------------------------------------
+
+function Library:CreateWindow(options)
+    options = options or {}
+
+    if self.Destroyed then
+        return nil
+    end
+
+    local window = setmetatable({}, Window)
+
+    window.Library = self
+    window.Tabs = {}
+    window.Components = {}
+    window.Connections = {}
+    window.Destroyed = false
+    window.Minimized = false
+    window.ToggleKey = options.ToggleKey or Enum.KeyCode.RightShift
+    window.OriginalSize = options.Size or UDim2.fromOffset(720, 520)
+    window.Title = options.Title or "Moonwalk"
+    window.Subtitle = options.Subtitle or "Premium Interface"
+    window.OpenDropdown = nil
+
+    if options.Theme then
+        ThemeManager:SetTheme(options.Theme)
+    end
+
+    local centerPosition = UDim2.new(0.5, 0, 0.5, 0)
+
+    local shadow = Utility.Create("Frame", {
+        Name = "Shadow",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = centerPosition,
+        Size = window.OriginalSize + UDim2.fromOffset(18, 18),
+        BackgroundColor3 = Color3.new(0, 0, 0),
+        BackgroundTransparency = 0.75,
+        ZIndex = 0,
+    }, self.ScreenGui)
+
+    Utility.Create("UICorner", {
+        CornerRadius = UDim.new(0, 16),
+    }, shadow)
+
+    local root = Utility.Create("Frame", {
+        Name = "Window",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = centerPosition,
+        Size = window.OriginalSize,
+        BackgroundTransparency = 0,
+        BorderSizePixel = 0,
+        ClipsDescendants = false,
+        ZIndex = 1,
+    }, self.ScreenGui)
+
+    StyleFrame(Component.new(self, window, root), root, "Background", 0)
+
+    local rootStroke = Utility.Create("UIStroke", {
+        Thickness = 1,
+        Transparency = 0.2,
+    }, root)
+
+    ThemeManager:Bind(rootStroke, "Color", "Border")
+
+    local scale = Utility.Create("UIScale", {
+        Scale = self.Scale,
+    }, root)
+
+    window.Root = root
+    window.ScaleObject = scale
+    window.Shadow = shadow
+
+    ThemeManager:Bind(shadow, "BackgroundColor3", "Background")
+
+    local sidebar = Utility.Create("Frame", {
+        Name = "Sidebar",
+        Position = UDim2.fromOffset(8, 8),
+        Size = UDim2.new(0, 176, 1, -16),
+        BackgroundTransparency = 0,
+        ZIndex = 2,
+    }, root)
+
+    local rootComponent = Component.new(self, window, root)
+
+    StyleFrame(rootComponent, sidebar, "Secondary", 0.05)
+    StyleStroke(rootComponent, sidebar, "Border", 0.45)
+
+    local header = Utility.Create("Frame", {
+        Name = "Header",
+        Position = UDim2.fromOffset(12, 12),
+        Size = UDim2.new(1, -24, 0, 58),
+        BackgroundTransparency = 1,
+        ZIndex = 4,
+    }, sidebar)
+
+    local titleLabel = MakeLabel(rootComponent, header, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(0, 2),
+        Size = UDim2.new(1, 0, 0, 25),
+        Text = window.Title,
+        TextSize = 17,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 5,
+    }, "Text")
+
+    local subtitleLabel = MakeLabel(rootComponent, header, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(0, 29),
+        Size = UDim2.new(1, 0, 0, 18),
+        Text = window.Subtitle,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 5,
+    }, "TextDark")
+
+    window.TitleLabel = titleLabel
+    window.SubtitleLabel = subtitleLabel
+
+    local tabList = Utility.Create("ScrollingFrame", {
+        Name = "TabList",
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(8, 82),
+        Size = UDim2.new(1, -16, 1, -122),
+        CanvasSize = UDim2.new(),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollBarThickness = 2,
+        ScrollBarImageTransparency = 1,
+        ZIndex = 4,
+    }, sidebar)
+
+    Utility.Create("UIListLayout", {
+        Padding = UDim.new(0, 4),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, tabList)
+
+    window.TabList = tabList
+
+    local sidebarBottom = Utility.Create("Frame", {
+        Name = "Bottom",
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.new(0, 12, 1, -12),
+        Size = UDim2.new(1, -24, 0, 25),
+        BackgroundTransparency = 1,
+    }, sidebar)
+
+    local versionText = MakeLabel(rootComponent, sidebarBottom, {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        Text = "Moonwalk UI • " .. self.Version,
+        TextSize = 9,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, "TextDark")
+
+    Utility.Create("Frame", {
+        Name = "Divider",
+        Position = UDim2.fromOffset(0, -8),
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = ThemeManager:GetColor("Border"),
+        BackgroundTransparency = 0.5,
+    }, sidebarBottom)
+
+    local content = Utility.Create("Frame", {
+        Name = "Content",
+        Position = UDim2.fromOffset(194, 8),
+        Size = UDim2.new(1, -202, 1, -16),
+        BackgroundTransparency = 0,
+        ZIndex = 2,
+        ClipsDescendants = false,
+    }, root)
+
+    StyleFrame(rootComponent, content, "Secondary", 0.05)
+    StyleStroke(rootComponent, content, "Border", 0.45)
+
+    window.Content = content
+    window.Sidebar = sidebar
+
+    local topBar = Utility.Create("Frame", {
+        Name = "TopBar",
+        Position = UDim2.fromOffset(10, 8),
+        Size = UDim2.new(1, -20, 0, 34),
+        BackgroundTransparency = 1,
+        ZIndex = 6,
+    }, content)
+
+    local contentTitle = MakeLabel(rootComponent, topBar, {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -80, 1, 0),
+        Text = window.Title,
+        TextSize = 14,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, "Text")
+
+    window.ContentTitle = contentTitle
+
+    local minimizeButton = Utility.Create("TextButton", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -30, 0.5, 0),
+        Size = UDim2.fromOffset(26, 26),
+        BackgroundTransparency = 0,
+        AutoButtonColor = false,
+        Text = "—",
+        TextSize = 15,
+        ZIndex = 8,
+    }, topBar)
+
+    StyleFrame(rootComponent, minimizeButton, "Element", 0)
+    StyleStroke(rootComponent, minimizeButton, "Border", 0.4)
+    rootComponent:BindTheme(minimizeButton, "TextColor3", "TextDark")
+    rootComponent:BindFont(minimizeButton)
+
+    local closeButton = Utility.Create("TextButton", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, 0, 0.5, 0),
+        Size = UDim2.fromOffset(26, 26),
+        BackgroundTransparency = 0,
+        AutoButtonColor = false,
+        Text = "×",
+        TextSize = 17,
+        ZIndex = 8,
+    }, topBar)
+
+    StyleFrame(rootComponent, closeButton, "Element", 0)
+    StyleStroke(rootComponent, closeButton, "Border", 0.4)
+    rootComponent:BindTheme(closeButton, "TextColor3", "TextDark")
+    rootComponent:BindFont(closeButton)
+
+    local pages = Utility.Create("Frame", {
+        Name = "Pages",
+        Position = UDim2.fromOffset(10, 48),
+        Size = UDim2.new(1, -20, 1, -58),
+        BackgroundTransparency = 1,
+        ZIndex = 3,
+    }, content)
+
+    window.Pages = pages
+    window.PopupLayer = Utility.Create("Frame", {
+        Name = "PopupLayer",
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 100,
+    }, self.ScreenGui)
+
+    rootComponent:RegisterTransparency(root, 0)
+    rootComponent:RegisterTransparency(sidebar, 0.05)
+    rootComponent:RegisterTransparency(content, 0.05)
+
+    rootComponent:AddCleanup(function()
+        if shadow and shadow.Parent then
+            shadow:Destroy()
+        end
+    end)
+
+    rootComponent:AddCleanup(function()
+        if window.PopupLayer and window.PopupLayer.Parent then
+            window.PopupLayer:Destroy()
+        end
+    end)
+
+    window.RootComponent = rootComponent
+
+    minimizeButton.Activated:Connect(function()
+        if window.Minimized then
+            window:Maximize()
+        else
+            window:Minimize()
+        end
+
+        SoundManager:Play("Click", 0.35)
+    end)
+
+    closeButton.Activated:Connect(function()
+        window:Close()
+        SoundManager:Play("Click", 0.35)
+
+        if self.CloseOnToggleKey then
+            return
+        end
+    end)
+
+    ----------------------------------------------------------------
+    -- Drag
+    ----------------------------------------------------------------
+
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPosition
+
+    topBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            dragging = true
+            dragInput = input
+            dragStart = input.Position
+            startPosition = root.Position
+        end
+    end)
+
+    topBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging or input ~= dragInput or window.Destroyed then
+            return
+        end
+
+        local delta = input.Position - dragStart
+
+        local camera = workspace.CurrentCamera
+
+        if not camera then
+            return
+        end
+
+        local viewport = camera.ViewportSize
+        local size = root.AbsoluteSize
+
+        local desiredX = startPosition.X.Offset + delta.X
+        local desiredY = startPosition.Y.Offset + delta.Y
+
+        local centerX = viewport.X / 2
+        local centerY = viewport.Y / 2
+
+        local halfW = size.X / 2
+        local halfH = size.Y / 2
+
+        desiredX = math.clamp(
+            centerX + (desiredX - centerX),
+            halfW,
+            viewport.X - halfW
+        )
+
+        desiredY = math.clamp(
+            centerY + (desiredY - centerY),
+            halfH,
+            viewport.Y - halfH
+        )
+
+        root.Position = UDim2.fromOffset(desiredX, desiredY)
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            dragging = false
+        end
+    end)
+
+    ----------------------------------------------------------------
+    -- UI Toggle Key
+    ----------------------------------------------------------------
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if window.Destroyed or gameProcessed then
+            return
+        end
+
+        if input.UserInputType == Enum.UserInputType.Keyboard
+            and input.KeyCode == window.ToggleKey then
+
+            if root.Visible then
+                window:Close()
+            else
+                window:Open()
+            end
+
+            SoundManager:Play("Click", 0.4)
+        end
+    end)
+
+    ----------------------------------------------------------------
+    -- Open animation
+    ----------------------------------------------------------------
+
+    if self.AnimationsEnabled then
+        root.Size = UDim2.fromOffset(
+            window.OriginalSize.X.Offset * 0.92,
+            window.OriginalSize.Y.Offset * 0.92
+        )
+
+        root.BackgroundTransparency = 1
+
+        AnimationManager:Tween(root, {
+            Size = window.OriginalSize,
+            BackgroundTransparency = 0,
+        }, "Back")
+
+        AnimationManager:Tween(shadow, {
+            Size = window.OriginalSize + UDim2.fromOffset(18, 18),
+            BackgroundTransparency = 0.75,
+        }, "Sine")
+    end
+
+    self.Windows[window] = true
+
+    return window
+end
+
+----------------------------------------------------------------
+-- Settings Tab
+----------------------------------------------------------------
+
+function Library:_CreateSettingsTab(window)
+    local tab = window:AddTab({
+        Name = "Settings",
+    })
+
+    tab:AddSection("Interface")
+
+    tab:AddToggle({
+        Name = "Animations",
+        Description = "Enable smooth UI transitions",
+        Default = self.AnimationsEnabled,
+        Configurable = false,
+        Callback = function(value)
+            self:SetAnimations(value)
+        end,
+    })
+
+    tab:AddSlider({
+        Name = "Animation Speed",
+        Description = "Duration used by interface transitions",
+        Min = 0.05,
+        Max = 0.8,
+        Default = self.AnimationSpeed,
+        Rounding = 2,
+        Configurable = false,
+        Callback = function(value)
+            self:SetAnimationSpeed(value)
+        end,
+    })
+
+    tab:AddSlider({
+        Name = "UI Scale",
+        Min = 0.75,
+        Max = 1.5,
+        Default = self.Scale,
+        Rounding = 2,
+        Configurable = false,
+        Callback = function(value)
+            self:SetScale(value)
+        end,
+    })
+
+    tab:AddSlider({
+        Name = "Transparency",
+        Min = 0,
+        Max = 0.65,
+        Default = self.Transparency,
+        Rounding = 2,
+        Configurable = false,
+        Callback = function(value)
+            self:SetTransparency(value)
+        end,
+    })
+
+    tab:AddDropdown({
+        Name = "Theme",
+        Description = "Choose the UI color scheme",
+        Options = {
+            "Dark",
+            "Midnight",
+            "Moonwalk",
+            "Cyan",
+            "Purple",
+            "Red",
+            "Green",
+        },
+        Default = ThemeManager.CurrentTheme,
+        Configurable = false,
+        Callback = function(value)
+            self:SetTheme(value)
+        end,
+    })
+
+    tab:AddDropdown({
+        Name = "Font",
+        Description = "Change all interface typography",
+        Options = {
+            "Gotham",
+            "GothamBold",
+            "SourceSans",
+            "SourceSansBold",
+            "Code",
+            "Roboto",
+            "Arial",
+        },
+        Default = "Gotham",
+        Configurable = false,
+        Callback = function(value)
+            local font = Enum.Font[value]
+
+            if font then
+                self:SetFont(font)
+            end
+        end,
+    })
+
+    tab:AddSection("Sounds")
+
+    tab:AddToggle({
+        Name = "UI Sounds",
+        Default = self.SoundEnabled,
+        Configurable = false,
+        Callback = function(value)
+            self:SetSoundEnabled(value)
+        end,
+    })
+
+    tab:AddSlider({
+        Name = "Master Volume",
+        Min = 0,
+        Max = 1,
+        Default = self.SoundVolume,
+        Rounding = 2,
+        Configurable = false,
+        Callback = function(value)
+            self:SetSoundVolume(value)
+        end,
+    })
+
+    tab:AddSlider({
+        Name = "Notification Volume",
+        Min = 0,
+        Max = 1,
+        Default = self.NotificationVolume,
+        Rounding = 2,
+        Configurable = false,
+        Callback = function(value)
+            SoundManager:SetNotificationVolume(value)
+        end,
+    })
+
+    tab:AddSection("Behavior")
+
+    tab:AddToggle({
+        Name = "Close on Toggle Key",
+        Description = "Keep the keybind behavior consistent",
+        Default = self.CloseOnToggleKey,
+        Configurable = false,
+        Callback = function(value)
+            self.CloseOnToggleKey = value
+        end,
+    })
+
+    tab:AddToggle({
+        Name = "Auto Open",
+        Description = "Keep the interface open after creation",
+        Default = self.AutoOpen,
+        Configurable = false,
+        Callback = function(value)
+            self.AutoOpen = value
+        end,
+    })
+
+    tab:AddSection("Configs")
+
+    tab:AddButton({
+        Name = "Save AutoSave",
+        Description = "Immediately save the current component states",
+        Callback = function()
+            self:SaveConfig("AutoSave")
+
+            self:Notify({
+                Title = "Config Saved",
+                Description = "AutoSave has been written.",
+                Type = "Success",
+                Duration = 3,
+            })
+        end,
+    })
+
+    tab:AddButton({
+        Name = "Load AutoSave",
+        Description = "Load the latest AutoSave",
+        Callback = function()
+            local success = self:LoadConfig("AutoSave")
+
+            self:Notify({
+                Title = success and "Config Loaded" or "Config Missing",
+                Description = success
+                    and "AutoSave has been loaded."
+                    or "No AutoSave was found.",
+                Type = success and "Success" or "Warning",
+                Duration = 3,
+            })
+        end,
+    })
+
+    tab:AddButton({
+        Name = "Enable AutoSave",
+        Description = "Debounced automatic saving",
+        Callback = function()
+            self:SetAutoSave(true)
+
+            self:Notify({
+                Title = "AutoSave",
+                Description = "Automatic saving is enabled.",
+                Type = "Info",
+                Duration = 3,
+            })
+        end,
+    })
+end
+
+----------------------------------------------------------------
+-- Notification Manager
+----------------------------------------------------------------
+
+local NotificationManager = {
+    Notifications = {},
+}
+
+function NotificationManager:Init()
+    self.Container = Utility.Create("Frame", {
+        Name = "Notifications",
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -18, 0, 18),
+        Size = UDim2.fromOffset(330, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        ZIndex = 500,
+    }, Library.ScreenGui)
+
+    Utility.Create("UIListLayout", {
+        Padding = UDim.new(0, 8),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        HorizontalAlignment = Enum.HorizontalAlignment.Right,
+        VerticalAlignment = Enum.VerticalAlignment.Top,
+    }, self.Container)
+
+    return self
+end
+
+function NotificationManager:Notify(options)
+    if Library.Destroyed or not self.Container then
+        return nil
+    end
+
+    options = options or {}
+
+    local titleText = tostring(options.Title or "Notification")
+    local descriptionText = tostring(options.Description or "")
+    local duration = math.max(0.5, tonumber(options.Duration) or 4)
+    local notificationType = tostring(options.Type or "Info")
+
+    local component = Component.new(Library, nil, self.Container)
+
+    local holder = Utility.Create("Frame", {
+        Name = "Notification",
+        Size = UDim2.fromOffset(310, 78),
+        BackgroundTransparency = 0,
+        BorderSizePixel = 0,
+        LayoutOrder = #self.Notifications + 1,
+        ZIndex = 501,
+    }, self.Container)
+
+    StyleFrame(component, holder, "Panel", 0)
+    StyleStroke(component, holder, "Border", 0.18)
+
+    local accent = Utility.Create("Frame", {
+        Position = UDim2.fromOffset(0, 8),
+        Size = UDim2.fromOffset(3, 62),
+        BackgroundTransparency = 0,
+        ZIndex = 503,
+    }, holder)
+
+    Utility.Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+    }, accent)
+
+    component:BindTheme(accent, "BackgroundColor3", notificationType)
+
+    local iconMap = {
+        Success = "✓",
+        Info = "i",
+        Warning = "!",
+        Error = "×",
+    }
+
+    local iconCircle = Utility.Create("Frame", {
+        Position = UDim2.fromOffset(14, 15),
+        Size = UDim2.fromOffset(30, 30),
+        BackgroundTransparency = 0,
+        ZIndex = 503,
+    }, holder)
+
+    StyleFrame(component, iconCircle, notificationType, 0.1)
+
+    local icon = MakeLabel(component, iconCircle, {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        Text = iconMap[notificationType] or "i",
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 504,
+    }, notificationType)
+
+    local title = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(55, 11),
+        Size = UDim2.new(1, -70, 0, 20),
+        Text = titleText,
+        TextSize = 12,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 503,
+    }, "Text")
+
+    local description = MakeLabel(component, holder, {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(55, 32),
+        Size = UDim2.new(1, -70, 0, 28),
+        Text = descriptionText,
+        TextSize = 10,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        ZIndex = 503,
+    }, "TextDark")
+
+    local progress = Utility.Create("Frame", {
+        Position = UDim2.new(0, 10, 1, -5),
+        Size = UDim2.new(1, -20, 0, 2),
+        BackgroundTransparency = 0,
+        ZIndex = 504,
+    }, holder)
+
+    Utility.Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+    }, progress)
+
+    component:BindTheme(progress, "BackgroundColor3", notificationType)
+
+    component.Frame = holder
+
+    table.insert(self.Notifications, component)
+
+    function component:Close()
+        if self.Destroyed then
+            return
+        end
+
+        self.Destroyed = true
+
+        if holder and holder.Parent then
+            if Library.AnimationsEnabled then
+                local tween = AnimationManager:Tween(holder, {
+                    Size = UDim2.fromOffset(310, 0),
+                    BackgroundTransparency = 1,
+                }, "Sine")
+
+                if tween then
+                    tween.Completed:Once(function()
+                        if holder and holder.Parent then
+                            holder:Destroy()
+                        end
+                    end)
+                else
+                    holder:Destroy()
+                end
+            else
+                holder:Destroy()
+            end
+        end
+
+        Component.Destroy(self)
+    end
+
+    if Library.AnimationsEnabled then
+        holder.Position = UDim2.fromOffset(30, 0)
+        holder.BackgroundTransparency = 1
+
+        AnimationManager:Tween(holder, {
+            Position = UDim2.fromOffset(0, 0),
+            BackgroundTransparency = 0,
+        }, "Back")
+    end
+
+    SoundManager:Play("Notification", 0.5)
+
+    local progressTween = AnimationManager:Tween(progress, {
+        Size = UDim2.new(0, 0, 0, 2),
+    }, "Linear")
+
+    local timer = task.delay(duration, function()
+        if not Library.Destroyed and not component.Destroyed then
+            component:Close()
+        end
+    end)
+
+    component:AddCleanup(function()
+        pcall(function()
+            task.cancel(timer)
+        end)
+
+        if progressTween then
+            pcall(function()
+                progressTween:Cancel()
+            end)
+        end
+
+        local index = table.find(self.Notifications, component)
+
+        if index then
+            table.remove(self.Notifications, index)
+        end
+    end)
+
+    return component
+end
+
+function NotificationManager:Destroy()
+    for _, notification in ipairs(self.Notifications) do
+        pcall(function()
+            notification:Close()
+        end)
+    end
+
+    table.clear(self.Notifications)
+
+    if self.Container then
+        self.Container:Destroy()
+        self.Container = nil
+    end
+end
+
+----------------------------------------------------------------
+-- Library Core
+----------------------------------------------------------------
+
+function Library:Init()
+    if self.ScreenGui then
+        return self
+    end
+
+    self.ScreenGui = Utility.Create("ScreenGui", {
+        Name = "MoonwalkUI",
+        ResetOnSpawn = false,
+        IgnoreGuiInset = true,
+        ZIndexBehavior = Enum.ZIndexBehavior.Global,
+        DisplayOrder = 999999,
+    }, LocalPlayer:WaitForChild("PlayerGui"))
+
+    self.Windows = {}
+
+    NotificationManager:Init()
+
+    return self
+end
+
+function Library:RegisterTheme(name, theme)
+    ThemeManager:RegisterTheme(name, theme)
+
+    return true
+end
+
+function Library:SetTheme(name)
+    if ThemeManager:SetTheme(name) then
+        TransparencyManager:Reapply()
+        return true
+    end
+
+    return false
+end
+
+function Library:GetTheme()
+    return ThemeManager.CurrentTheme
+end
+
+function Library:SetFont(font)
+    if typeof(font) == "string" then
+        font = Enum.Font[font]
+    end
+
+    if typeof(font) ~= "EnumItem"
+        or font.EnumType ~= Enum.Font then
+
+        return false
+    end
+
+    self.Font = font
+
+    FontManager:Reapply()
+
+    return true
+end
+
+function Library:SetScale(scale)
+    scale = tonumber(scale) or 1
+    scale = math.clamp(scale, 0.5, 2)
+
+    self.Scale = scale
+
+    for window in pairs(self.Windows or {}) do
+        if window.ScaleObject and window.ScaleObject.Parent then
+            window.ScaleObject.Scale = scale
+        end
+    end
+
+    return true
+end
+
+function Library:SetTransparency(value)
+    value = tonumber(value) or 0
+    value = math.clamp(value, 0, 0.85)
+
+    self.Transparency = value
+
+    TransparencyManager:Reapply()
+
+    return true
+end
+
+function Library:SetAnimations(enabled)
+    self.AnimationsEnabled = enabled == true
+end
+
+function Library:SetAnimationSpeed(speed)
+    self.AnimationSpeed = math.max(
+        0,
+        tonumber(speed) or 0.25
+    )
+end
+
+function Library:SetSound(name, id)
+    SoundManager:SetSound(name, id)
+end
+
+function Library:SetSoundEnabled(enabled)
+    SoundManager:SetEnabled(enabled)
+end
+
+function Library:SetSoundVolume(volume)
+    SoundManager:SetVolume(volume)
+end
+
+function Library:SetNotificationVolume(volume)
+    SoundManager:SetNotificationVolume(volume)
+end
+
+function Library:Notify(options)
+    return NotificationManager:Notify(options)
+end
+
+function Library:SetAutoSave(enabled)
+    ConfigManager:SetAutoSave(enabled)
+end
+
+function Library:SaveConfig(name)
+    return ConfigManager:Save(name)
+end
+
+function Library:LoadConfig(name)
+    return ConfigManager:Load(name)
+end
+
+function Library:DeleteConfig(name)
+    return ConfigManager:Delete(name)
+end
+
+function Library:GetConfigs()
+    return ConfigManager:GetConfigs()
+end
+
+function Library:ToggleUI()
+    for window in pairs(self.Windows or {}) do
+        window:Toggle()
+    end
+end
+
+function Library:Destroy()
+    if self.Destroyed then
+        return
+    end
+
+    self.Destroyed = true
+
+    for window in pairs(self.Windows or {}) do
+        pcall(function()
+            window:Destroy()
+        end)
+    end
+
+    table.clear(self.Windows or {})
+
+    NotificationManager:Destroy()
+    AnimationManager:StopAll()
+    SoundManager:Destroy()
+
+    ConfigManager:Destroy()
+    ThemeManager:Cleanup()
+    FontManager:Cleanup()
+    TransparencyManager:Cleanup()
+
+    if self.ScreenGui then
+        self.ScreenGui:Destroy()
+        self.ScreenGui = nil
+    end
+end
+
+----------------------------------------------------------------
+-- Initialize
+----------------------------------------------------------------
+
+Library:Init()
+
+return Library
