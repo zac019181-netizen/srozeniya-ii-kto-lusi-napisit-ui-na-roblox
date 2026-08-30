@@ -1,41 +1,45 @@
 --[[
-    3D LIBRARY
-    ==========
-    Physical Workspace Part + SurfaceGui
+    3D KAVO STYLE LIBRARY
+    =====================
+
+    Workspace:
+        Windows
+            └── 3DInterface
+
+    Interaction:
+        RMB
+
+    Default toggle:
+        TAB
 
     Features:
-    - Window Part uses the exact name passed to CreateLib()
-    - Always CanCollide = false
-    - Always CanTouch = false
-    - CanQuery = true for mouse raycast
-    - RMB interaction
-    - Hidden window follows player
-    - Visible window stays in world
-    - Fade in / fade out
-    - Window distance setting
-    - Window height setting
-    - Window size setting
-    - Fade speed setting
-    - Rebindable open/close key
-    - Better 3D mouse detection
-    - Slider drag
-    - Tabs
-    - Sections
-    - Button
-    - Toggle
-    - Slider
-    - Dropdown
-    - TextBox
-    - Keybind
-    - ColorPicker
-    - Label
+        - Physical Part
+        - SurfaceGui
+        - Real workspace Raycast
+        - Mirrored X hit detection
+        - Hidden-page protection
+        - RMB buttons
+        - RMB toggles
+        - RMB sliders
+        - Slider drag
+        - Dropdown
+        - TextBox
+        - Keybind
+        - ColorPicker
+        - Tabs
+        - Sections
+        - GUI distance
+        - GUI height
+        - GUI size
+        - Fade duration
+        - Rebindable GUI toggle key
 ]]
 
 local Library = {}
 
-------------------------------------------------------------
+----------------------------------------------------------------
 -- SERVICES
-------------------------------------------------------------
+----------------------------------------------------------------
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -43,9 +47,9 @@ local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 
-------------------------------------------------------------
+----------------------------------------------------------------
 -- THEMES
-------------------------------------------------------------
+----------------------------------------------------------------
 
 local themes = {
 
@@ -114,27 +118,9 @@ local themes = {
     }
 }
 
-------------------------------------------------------------
+----------------------------------------------------------------
 -- HELPERS
-------------------------------------------------------------
-
-local function getCharacter()
-    return LocalPlayer.Character
-end
-
-local function getRoot()
-    local character = getCharacter()
-
-    if not character then
-        return nil
-    end
-
-    return character:FindFirstChild("HumanoidRootPart")
-end
-
-local function getCamera()
-    return workspace.CurrentCamera
-end
+----------------------------------------------------------------
 
 local function getTheme(theme)
     if type(theme) == "string" then
@@ -154,21 +140,47 @@ local function getTheme(theme)
     return themes.RJTheme3
 end
 
+local function getRoot()
+    local character = LocalPlayer.Character
+
+    if not character then
+        return nil
+    end
+
+    return character:FindFirstChild("HumanoidRootPart")
+end
+
 local function addCorner(parent, radius)
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius or 5)
+
+    corner.CornerRadius =
+        UDim.new(0, radius or 5)
+
     corner.Parent = parent
 
     return corner
 end
 
-local function addPadding(parent, left, right, top, bottom)
+local function addPadding(
+    parent,
+    left,
+    right,
+    top,
+    bottom
+)
     local padding = Instance.new("UIPadding")
 
-    padding.PaddingLeft = UDim.new(0, left or 0)
-    padding.PaddingRight = UDim.new(0, right or 0)
-    padding.PaddingTop = UDim.new(0, top or 0)
-    padding.PaddingBottom = UDim.new(0, bottom or 0)
+    padding.PaddingLeft =
+        UDim.new(0, left or 0)
+
+    padding.PaddingRight =
+        UDim.new(0, right or 0)
+
+    padding.PaddingTop =
+        UDim.new(0, top or 0)
+
+    padding.PaddingBottom =
+        UDim.new(0, bottom or 0)
 
     padding.Parent = parent
 
@@ -183,47 +195,57 @@ local function safeCallback(callback, ...)
     pcall(callback, ...)
 end
 
-------------------------------------------------------------
+----------------------------------------------------------------
 -- CREATE LIB
-------------------------------------------------------------
+----------------------------------------------------------------
 
-function Library.CreateLib(kavName, themeName)
+function Library.CreateLib(
+    kavName,
+    themeName
+)
 
-    kavName = kavName or "Windows"
+    kavName =
+        kavName or "Windows"
 
-    local theme = getTheme(themeName)
+    local theme =
+        getTheme(themeName)
 
-    --------------------------------------------------------
-    -- DELETE OLD WINDOW
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- DELETE OLD
+    ------------------------------------------------------------
 
-    local old = workspace:FindFirstChild(kavName)
+    local old =
+        workspace:FindFirstChild(
+            kavName
+        )
 
     if old then
         old:Destroy()
     end
 
-    --------------------------------------------------------
-    -- WINDOW PART
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- PART
+    ------------------------------------------------------------
 
-    local WindowPart = Instance.new("Part")
+    local WindowPart =
+        Instance.new("Part")
 
-    WindowPart.Name = kavName
+    WindowPart.Name =
+        kavName
 
-    WindowPart.Size = Vector3.new(
-        10.5,
-        6.35,
-        0.15
-    )
+    WindowPart.Size =
+        Vector3.new(
+            10.5,
+            6.35,
+            0.15
+        )
 
     WindowPart.Anchored = true
 
     WindowPart.CanCollide = false
     WindowPart.CanTouch = false
 
-    -- IMPORTANT:
-    -- mouse raycast needs this to be true
+    -- MUST BE TRUE FOR RAYCAST
     WindowPart.CanQuery = true
 
     WindowPart.CastShadow = false
@@ -233,21 +255,23 @@ function Library.CreateLib(kavName, themeName)
 
     WindowPart.Transparency = 1
 
-    WindowPart.Parent = workspace
+    WindowPart.Parent =
+        workspace
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- SURFACE GUI
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
-    local Surface = Instance.new("SurfaceGui")
+    local Surface =
+        Instance.new("SurfaceGui")
 
-    Surface.Name = "3DInterface"
+    Surface.Name =
+        "3DInterface"
 
     Surface.Face =
         Enum.NormalId.Front
 
     Surface.AlwaysOnTop = true
-
     Surface.LightInfluence = 0
 
     Surface.SizingMode =
@@ -257,75 +281,122 @@ function Library.CreateLib(kavName, themeName)
 
     Surface.ClipsDescendants = true
 
-    Surface.Parent = WindowPart
+    Surface.Parent =
+        WindowPart
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- MAIN
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
-    local Main = Instance.new("Frame")
+    local Main =
+        Instance.new("Frame")
 
-    Main.Name = "Main"
+    Main.Name =
+        "Main"
 
-    Main.Size = UDim2.fromScale(1, 1)
+    Main.Size =
+        UDim2.fromScale(
+            1,
+            1
+        )
 
     Main.BackgroundColor3 =
         theme.Background
 
     Main.BorderSizePixel = 0
 
-    Main.Parent = Surface
+    Main.Parent =
+        Surface
 
-    addCorner(Main, 7)
+    addCorner(
+        Main,
+        7
+    )
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- HEADER
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
-    local Header = Instance.new("Frame")
+    local Header =
+        Instance.new("Frame")
 
-    Header.Name = "Header"
+    Header.Name =
+        "Header"
 
     Header.Size =
-        UDim2.new(1, 0, 0, 42)
+        UDim2.new(
+            1,
+            0,
+            0,
+            42
+        )
 
     Header.BackgroundColor3 =
         theme.Header
 
     Header.BorderSizePixel = 0
 
-    Header.Parent = Main
+    Header.Parent =
+        Main
 
-    addCorner(Header, 7)
+    addCorner(
+        Header,
+        7
+    )
 
-    local HeaderCover = Instance.new("Frame")
+    local HeaderCover =
+        Instance.new("Frame")
 
     HeaderCover.Position =
-        UDim2.new(0, 0, 1, -7)
+        UDim2.new(
+            0,
+            0,
+            1,
+            -7
+        )
 
     HeaderCover.Size =
-        UDim2.new(1, 0, 0, 7)
+        UDim2.new(
+            1,
+            0,
+            0,
+            7
+        )
 
     HeaderCover.BackgroundColor3 =
         theme.Header
 
     HeaderCover.BorderSizePixel = 0
 
-    HeaderCover.Parent = Header
+    HeaderCover.Parent =
+        Header
 
-    local Title = Instance.new("TextLabel")
+    local Title =
+        Instance.new("TextLabel")
 
-    Title.Name = "Title"
+    Title.Name =
+        "Title"
 
     Title.BackgroundTransparency = 1
 
     Title.Position =
-        UDim2.new(0, 14, 0, 0)
+        UDim2.new(
+            0,
+            14,
+            0,
+            0
+        )
 
     Title.Size =
-        UDim2.new(1, -20, 1, 0)
+        UDim2.new(
+            1,
+            -20,
+            1,
+            0
+        )
 
-    Title.Text = kavName
+    Title.Text =
+        kavName
 
     Title.TextColor3 =
         theme.TextColor
@@ -338,28 +409,42 @@ function Library.CreateLib(kavName, themeName)
     Title.TextXAlignment =
         Enum.TextXAlignment.Left
 
-    Title.Parent = Header
+    Title.Parent =
+        Header
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- SIDEBAR
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
-    local Side = Instance.new("Frame")
+    local Side =
+        Instance.new("Frame")
 
-    Side.Name = "Side"
+    Side.Name =
+        "Side"
 
     Side.Position =
-        UDim2.new(0, 0, 0, 42)
+        UDim2.new(
+            0,
+            0,
+            0,
+            42
+        )
 
     Side.Size =
-        UDim2.new(0, 155, 1, -42)
+        UDim2.new(
+            0,
+            155,
+            1,
+            -42
+        )
 
     Side.BackgroundColor3 =
         theme.Header
 
     Side.BorderSizePixel = 0
 
-    Side.Parent = Main
+    Side.Parent =
+        Main
 
     addPadding(
         Side,
@@ -378,62 +463,77 @@ function Library.CreateLib(kavName, themeName)
     TabList.SortOrder =
         Enum.SortOrder.LayoutOrder
 
-    TabList.Parent = Side
+    TabList.Parent =
+        Side
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- PAGES
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
     local Pages =
         Instance.new("Frame")
 
-    Pages.Name = "Pages"
+    Pages.Name =
+        "Pages"
 
     Pages.Position =
-        UDim2.new(0, 155, 0, 42)
+        UDim2.new(
+            0,
+            155,
+            0,
+            42
+        )
 
     Pages.Size =
-        UDim2.new(1, -155, 1, -42)
+        UDim2.new(
+            1,
+            -155,
+            1,
+            -42
+        )
 
-    Pages.BackgroundTransparency = 1
+    Pages.BackgroundTransparency =
+        1
 
-    Pages.Parent = Main
+    Pages.Parent =
+        Main
 
-    --------------------------------------------------------
-    -- LIBRARY STATE
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- STATE
+    ------------------------------------------------------------
 
     local self = {}
 
-    self.Part = WindowPart
-    self.Surface = Surface
-    self.Main = Main
-    self.Theme = theme
+    self.Part =
+        WindowPart
+
+    self.Surface =
+        Surface
+
+    self.Main =
+        Main
+
+    self.Theme =
+        theme
 
     self.Visible = false
+
     self.Animating = false
 
-    self.FadeDuration = 0.25
+    self.FadeDuration =
+        0.25
 
-    self.FollowDistance = 7
-    self.FollowHeight = 1.7
+    self.FollowDistance =
+        7
 
-    self.SizeMultiplier = 1
+    self.FollowHeight =
+        1.7
+
+    self.SizeMultiplier =
+        1
 
     self.ToggleKey =
         Enum.KeyCode.Tab
-
-    self.FollowRotation =
-        CFrame.Angles(
-            0,
-            math.rad(180),
-            0
-        )
-
-    self.Tabs = {}
-    self.Pages = {}
-
-    self.CurrentTab = nil
 
     self.BaseSize =
         Vector3.new(
@@ -442,24 +542,33 @@ function Library.CreateLib(kavName, themeName)
             0.15
         )
 
-    --------------------------------------------------------
-    -- HITBOX REGISTRY
-    --------------------------------------------------------
+    self.Tabs = {}
+
+    self.CurrentTab =
+        nil
+
+    ------------------------------------------------------------
+    -- HITBOXES
+    ------------------------------------------------------------
 
     local Hitboxes = {}
 
-    local function register(gui, callback)
-        Hitboxes[gui] = callback
+    local function register(
+        gui,
+        callback
+    )
+        Hitboxes[gui] =
+            callback
+
         return gui
     end
 
-    local function unregister(gui)
-        Hitboxes[gui] = nil
-    end
-
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- RAYCAST PARAMS
-    --------------------------------------------------------
+    --
+    -- THIS FIXES:
+    -- "Unable to cast Dictionary to RaycastParams"
+    ------------------------------------------------------------
 
     local RaycastParams =
         RaycastParams.new()
@@ -471,15 +580,17 @@ function Library.CreateLib(kavName, themeName)
         WindowPart
     }
 
-    RaycastParams.IgnoreWater = true
+    RaycastParams.IgnoreWater =
+        true
 
-    --------------------------------------------------------
-    -- GET FOLLOW POSITION
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- FOLLOW POSITION
+    ------------------------------------------------------------
 
     local function getFollowCFrame()
 
-        local root = getRoot()
+        local root =
+            getRoot()
 
         if not root then
             return nil
@@ -492,29 +603,34 @@ function Library.CreateLib(kavName, themeName)
                 self.FollowHeight,
                 -self.FollowDistance
             )
-            * self.FollowRotation
+            * CFrame.Angles(
+                0,
+                math.rad(180),
+                0
+            )
     end
 
-    --------------------------------------------------------
-    -- REAL 3D MOUSE RAYCAST
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- REAL RAYCAST MOUSE POSITION
+    -- WITH MIRRORED X
+    ------------------------------------------------------------
 
     local function getMouseSurfacePosition()
 
         local camera =
-            getCamera()
+            workspace.CurrentCamera
 
         if not camera then
             return nil
         end
 
-        local mousePosition =
+        local mouse =
             UserInputService:GetMouseLocation()
 
         local ray =
             camera:ViewportPointToRay(
-                mousePosition.X,
-                mousePosition.Y
+                mouse.X,
+                mouse.Y
             )
 
         local result =
@@ -528,14 +644,17 @@ function Library.CreateLib(kavName, themeName)
             return nil
         end
 
-        if result.Instance ~= WindowPart then
+        if result.Instance
+            ~= WindowPart then
+
             return nil
         end
 
         local localPoint =
-            WindowPart.CFrame:PointToObjectSpace(
-                result.Position
-            )
+            WindowPart.CFrame
+                :PointToObjectSpace(
+                    result.Position
+                )
 
         local halfX =
             WindowPart.Size.X / 2
@@ -543,37 +662,82 @@ function Library.CreateLib(kavName, themeName)
         local halfY =
             WindowPart.Size.Y / 2
 
-        local normalizedX =
-            (localPoint.X + halfX)
+        local x =
+            (
+                localPoint.X
+                + halfX
+            )
             / WindowPart.Size.X
 
-        local normalizedY =
-            (-localPoint.Y + halfY)
+        local y =
+            (
+                -localPoint.Y
+                + halfY
+            )
             / WindowPart.Size.Y
 
-        normalizedX =
+        --------------------------------------------------------
+        -- MIRROR X
+        --------------------------------------------------------
+
+        x = 1 - x
+
+        x =
             math.clamp(
-                normalizedX,
+                x,
                 0,
                 1
             )
 
-        normalizedY =
+        y =
             math.clamp(
-                normalizedY,
+                y,
                 0,
                 1
             )
 
         return Vector2.new(
-            normalizedX * Surface.AbsoluteSize.X,
-            normalizedY * Surface.AbsoluteSize.Y
+            x * Surface.AbsoluteSize.X,
+            y * Surface.AbsoluteSize.Y
         )
     end
 
-    --------------------------------------------------------
-    -- GUI HIT TEST
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- IMPORTANT:
+    -- Check EVERY parent.
+    --
+    -- This fixes:
+    -- Main click also activating Settings Keybind.
+    ------------------------------------------------------------
+
+    local function isActuallyVisible(gui)
+
+        local current =
+            gui
+
+        while current
+            and current ~= Surface do
+
+            if current:IsA(
+                "GuiObject"
+            ) then
+
+                if not current.Visible then
+                    return false
+                end
+
+            end
+
+            current =
+                current.Parent
+        end
+
+        return true
+    end
+
+    ------------------------------------------------------------
+    -- POINT INSIDE
+    ------------------------------------------------------------
 
     local function pointInside(
         gui,
@@ -584,42 +748,51 @@ function Library.CreateLib(kavName, themeName)
             return false
         end
 
-        if not gui.Visible then
+        if not isActuallyVisible(
+            gui
+        ) then
             return false
         end
 
-        local position =
+        local pos =
             gui.AbsolutePosition
 
         local size =
             gui.AbsoluteSize
 
         return
-            point.X >= position.X
+            point.X >= pos.X
             and point.X <=
-                position.X + size.X
-            and point.Y >= position.Y
+                pos.X + size.X
+            and point.Y >= pos.Y
             and point.Y <=
-                position.Y + size.Y
+                pos.Y + size.Y
     end
 
-    --------------------------------------------------------
-    -- FIND TOPMOST ELEMENT
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- FIRE CLICK
+    ------------------------------------------------------------
 
-    local function fireAtPoint(point)
+    local function fireAtPoint(
+        point
+    )
 
-        local selectedGui = nil
-        local selectedCallback = nil
+        local selected =
+            nil
 
-        local bestZ = -math.huge
+        local selectedCallback =
+            nil
 
-        for gui, callback in pairs(Hitboxes) do
+        local bestZ =
+            -math.huge
+
+        for gui, callback in pairs(
+            Hitboxes
+        ) do
 
             if gui
                 and gui.Parent
-                and gui:IsA("GuiObject")
-                and gui.Visible then
+                and gui:IsA("GuiObject") then
 
                 if pointInside(
                     gui,
@@ -633,31 +806,39 @@ function Library.CreateLib(kavName, themeName)
 
                         bestZ = z
 
-                        selectedGui =
+                        selected =
                             gui
 
                         selectedCallback =
                             callback
 
                     end
+
                 end
+
             end
+
         end
 
         if selectedCallback then
+
             return selectedCallback(
                 point,
-                selectedGui
+                selected
             )
+
         end
     end
 
-    --------------------------------------------------------
-    -- GLOBAL RIGHT CLICK
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- RIGHT MOUSE
+    ------------------------------------------------------------
 
     UserInputService.InputBegan:Connect(
-        function(input, processed)
+        function(
+            input,
+            processed
+        )
 
             if processed then
                 return
@@ -682,22 +863,28 @@ function Library.CreateLib(kavName, themeName)
                 return
             end
 
-            fireAtPoint(point)
+            fireAtPoint(
+                point
+            )
+
         end
     )
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- ACTIVE SLIDER
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
-    local ActiveSlider = nil
+    local ActiveSlider =
+        nil
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- MOUSE MOVE
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
     UserInputService.InputChanged:Connect(
-        function(input)
+        function(
+            input
+        )
 
             if not ActiveSlider then
                 return
@@ -709,8 +896,9 @@ function Library.CreateLib(kavName, themeName)
                 return
             end
 
-            if not self.Visible
-                or self.Animating then
+            if not self.Visible then
+
+                ActiveSlider = nil
 
                 return
             end
@@ -729,28 +917,34 @@ function Library.CreateLib(kavName, themeName)
         end
     )
 
-    --------------------------------------------------------
-    -- MOUSE UP
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- MOUSE RELEASE
+    ------------------------------------------------------------
 
     UserInputService.InputEnded:Connect(
-        function(input)
+        function(
+            input
+        )
 
             if input.UserInputType
                 == Enum.UserInputType.MouseButton2 then
 
-                ActiveSlider = nil
+                ActiveSlider =
+                    nil
+
             end
 
         end
     )
 
-    --------------------------------------------------------
-    -- SCROLL
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- WHEEL
+    ------------------------------------------------------------
 
     UserInputService.InputChanged:Connect(
-        function(input)
+        function(
+            input
+        )
 
             if not self.Visible
                 or self.Animating then
@@ -778,7 +972,7 @@ function Library.CreateLib(kavName, themeName)
                 return
             end
 
-            local delta =
+            local scroll =
                 input.Position.Z
 
             page.CanvasPosition =
@@ -787,16 +981,16 @@ function Library.CreateLib(kavName, themeName)
                     math.max(
                         0,
                         page.CanvasPosition.Y
-                        - delta * 40
+                        - scroll * 45
                     )
                 )
 
         end
     )
 
-    --------------------------------------------------------
-    -- GUI VISUAL ALPHA
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- FADE
+    ------------------------------------------------------------
 
     local function setGuiAlpha(
         alpha
@@ -830,11 +1024,13 @@ function Library.CreateLib(kavName, themeName)
                     alpha
             end
 
-            if object:IsA("GuiObject") then
+            if object:IsA(
+                "GuiObject"
+            ) then
 
                 local original =
                     object:GetAttribute(
-                        "OriginalBackgroundTransparency"
+                        "OriginalBG"
                     )
 
                 if original == nil then
@@ -843,7 +1039,7 @@ function Library.CreateLib(kavName, themeName)
                         object.BackgroundTransparency
 
                     object:SetAttribute(
-                        "OriginalBackgroundTransparency",
+                        "OriginalBG",
                         original
                     )
 
@@ -858,13 +1054,16 @@ function Library.CreateLib(kavName, themeName)
                         ) * alpha
 
                 end
+
             end
+
         end
+
     end
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- SHOW
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
     function self:Show()
 
@@ -874,33 +1073,48 @@ function Library.CreateLib(kavName, themeName)
             return
         end
 
-        self.Animating = true
+        self.Animating =
+            true
 
-        ----------------------------------------------------
-        -- FIRST:
-        -- POSITION WHILE COMPLETELY HIDDEN
-        ----------------------------------------------------
+        --------------------------------------------------------
+        -- STEP 1:
+        -- COMPLETELY HIDDEN
+        --------------------------------------------------------
 
-        WindowPart.Transparency = 1
-        setGuiAlpha(1)
+        WindowPart.Transparency =
+            1
+
+        setGuiAlpha(
+            1
+        )
+
+        --------------------------------------------------------
+        -- STEP 2:
+        -- POSITION WHILE HIDDEN
+        --------------------------------------------------------
 
         local target =
             getFollowCFrame()
 
         if target then
+
             WindowPart.CFrame =
                 target
+
         end
 
-        ----------------------------------------------------
-        -- STOP FOLLOWING BEFORE FADE
-        ----------------------------------------------------
+        --------------------------------------------------------
+        -- STEP 3:
+        -- STOP FOLLOWING
+        --------------------------------------------------------
 
-        self.Visible = true
+        self.Visible =
+            true
 
-        ----------------------------------------------------
+        --------------------------------------------------------
+        -- STEP 4:
         -- FADE IN
-        ----------------------------------------------------
+        --------------------------------------------------------
 
         local steps = 20
 
@@ -923,17 +1137,21 @@ function Library.CreateLib(kavName, themeName)
 
         end
 
-        WindowPart.Transparency = 0
+        WindowPart.Transparency =
+            0
 
-        setGuiAlpha(0)
+        setGuiAlpha(
+            0
+        )
 
-        self.Animating = false
+        self.Animating =
+            false
 
     end
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- HIDE
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
     function self:Hide()
 
@@ -943,11 +1161,13 @@ function Library.CreateLib(kavName, themeName)
             return
         end
 
-        self.Animating = true
+        self.Animating =
+            true
 
-        ----------------------------------------------------
-        -- FADE OUT FIRST
-        ----------------------------------------------------
+        --------------------------------------------------------
+        -- STEP 1:
+        -- FADE OUT COMPLETELY
+        --------------------------------------------------------
 
         local steps = 20
 
@@ -970,41 +1190,49 @@ function Library.CreateLib(kavName, themeName)
 
         end
 
-        ----------------------------------------------------
-        -- FULLY INVISIBLE
-        ----------------------------------------------------
+        --------------------------------------------------------
+        -- STEP 2:
+        -- NOW FULLY INVISIBLE
+        --------------------------------------------------------
 
-        WindowPart.Transparency = 1
+        WindowPart.Transparency =
+            1
 
-        setGuiAlpha(1)
+        setGuiAlpha(
+            1
+        )
 
-        ----------------------------------------------------
-        -- ONLY NOW:
-        -- HIDDEN STATE
-        ----------------------------------------------------
+        --------------------------------------------------------
+        -- STEP 3:
+        -- ONLY NOW HIDDEN
+        --------------------------------------------------------
 
-        self.Visible = false
+        self.Visible =
+            false
 
-        ----------------------------------------------------
-        -- ONLY NOW:
-        -- MOVE IT BACK TO PLAYER
-        ----------------------------------------------------
+        --------------------------------------------------------
+        -- STEP 4:
+        -- ONLY NOW MOVE
+        --------------------------------------------------------
 
         local target =
             getFollowCFrame()
 
         if target then
+
             WindowPart.CFrame =
                 target
+
         end
 
-        self.Animating = false
+        self.Animating =
+            false
 
     end
 
-    --------------------------------------------------------
-    -- TOGGLE UI
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- TOGGLE
+    ------------------------------------------------------------
 
     function self:ToggleUI()
 
@@ -1013,16 +1241,20 @@ function Library.CreateLib(kavName, themeName)
         end
 
         if self.Visible then
+
             self:Hide()
+
         else
+
             self:Show()
+
         end
 
     end
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- TOGGLE KEY
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
     function self:SetToggleKey(
         key
@@ -1048,12 +1280,14 @@ function Library.CreateLib(kavName, themeName)
     end
 
     function self:GetToggleKey()
+
         return self.ToggleKey
+
     end
 
-    --------------------------------------------------------
-    -- GLOBAL TOGGLE LISTENER
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- KEY LISTENER
+    ------------------------------------------------------------
 
     UserInputService.InputBegan:Connect(
         function(
@@ -1082,9 +1316,9 @@ function Library.CreateLib(kavName, themeName)
         end
     )
 
-    --------------------------------------------------------
-    -- FOLLOW PLAYER WHILE HIDDEN
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- FOLLOW WHEN HIDDEN
+    ------------------------------------------------------------
 
     RunService.RenderStepped:Connect(
         function()
@@ -1099,16 +1333,18 @@ function Library.CreateLib(kavName, themeName)
                 getFollowCFrame()
 
             if target then
+
                 WindowPart.CFrame =
                     target
+
             end
 
         end
     )
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- WINDOW SIZE
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
     function self:SetSizeMultiplier(
         value
@@ -1130,20 +1366,26 @@ function Library.CreateLib(kavName, themeName)
 
         WindowPart.Size =
             Vector3.new(
-                self.BaseSize.X * value,
-                self.BaseSize.Y * value,
+                self.BaseSize.X
+                    * value,
+
+                self.BaseSize.Y
+                    * value,
+
                 self.BaseSize.Z
             )
 
     end
 
     function self:GetSizeMultiplier()
+
         return self.SizeMultiplier
+
     end
 
-    --------------------------------------------------------
-    -- GUI DISTANCE
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- DISTANCE
+    ------------------------------------------------------------
 
     function self:SetDistance(
         value
@@ -1153,25 +1395,24 @@ function Library.CreateLib(kavName, themeName)
             tonumber(value)
             or 7
 
-        value =
+        self.FollowDistance =
             math.clamp(
                 value,
                 2,
                 20
             )
 
-        self.FollowDistance =
-            value
-
     end
 
     function self:GetDistance()
+
         return self.FollowDistance
+
     end
 
-    --------------------------------------------------------
-    -- GUI HEIGHT
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- HEIGHT
+    ------------------------------------------------------------
 
     function self:SetHeight(
         value
@@ -1181,25 +1422,24 @@ function Library.CreateLib(kavName, themeName)
             tonumber(value)
             or 1.7
 
-        value =
+        self.FollowHeight =
             math.clamp(
                 value,
                 -4,
                 6
             )
 
-        self.FollowHeight =
-            value
-
     end
 
     function self:GetHeight()
+
         return self.FollowHeight
+
     end
 
-    --------------------------------------------------------
+    ------------------------------------------------------------
     -- FADE DURATION
-    --------------------------------------------------------
+    ------------------------------------------------------------
 
     function self:SetFadeDuration(
         value
@@ -1209,25 +1449,24 @@ function Library.CreateLib(kavName, themeName)
             tonumber(value)
             or 0.25
 
-        value =
+        self.FadeDuration =
             math.clamp(
                 value,
                 0.05,
                 3
             )
 
-        self.FadeDuration =
-            value
-
     end
 
     function self:GetFadeDuration()
+
         return self.FadeDuration
+
     end
 
-    --------------------------------------------------------
-    -- TABS
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- TAB
+    ------------------------------------------------------------
 
     function self:NewTab(
         tabName
@@ -1236,20 +1475,21 @@ function Library.CreateLib(kavName, themeName)
         tabName =
             tabName or "Tab"
 
-        ----------------------------------------------------
+        --------------------------------------------------------
         -- TAB BUTTON
-        ----------------------------------------------------
+        --------------------------------------------------------
 
         local TabButton =
             Instance.new("TextLabel")
 
         TabButton.Name =
-            tabName .. "TabButton"
+            tabName
+            .. "TabButton"
 
         TabButton.Size =
             UDim2.new(
                 1,
-                0,
+                -10,
                 0,
                 34
             )
@@ -1274,22 +1514,26 @@ function Library.CreateLib(kavName, themeName)
         TabButton.Parent =
             Side
 
-        TabButton.ZIndex = 10
+        TabButton.ZIndex =
+            20
 
         addCorner(
             TabButton,
             5
         )
 
-        ----------------------------------------------------
+        --------------------------------------------------------
         -- PAGE
-        ----------------------------------------------------
+        --------------------------------------------------------
 
         local Page =
-            Instance.new("ScrollingFrame")
+            Instance.new(
+                "ScrollingFrame"
+            )
 
         Page.Name =
-            tabName .. "Page"
+            tabName
+            .. "Page"
 
         Page.Size =
             UDim2.fromScale(
@@ -1297,7 +1541,8 @@ function Library.CreateLib(kavName, themeName)
                 1
             )
 
-        Page.BackgroundTransparency = 1
+        Page.BackgroundTransparency =
+            1
 
         Page.BorderSizePixel = 0
 
@@ -1312,7 +1557,8 @@ function Library.CreateLib(kavName, themeName)
         Page.ScrollingDirection =
             Enum.ScrollingDirection.Y
 
-        Page.Visible = false
+        Page.Visible =
+            false
 
         Page.Parent =
             Pages
@@ -1328,10 +1574,15 @@ function Library.CreateLib(kavName, themeName)
         )
 
         local PageLayout =
-            Instance.new("UIListLayout")
+            Instance.new(
+                "UIListLayout"
+            )
 
         PageLayout.Padding =
-            UDim.new(0, 6)
+            UDim.new(
+                0,
+                6
+            )
 
         PageLayout.SortOrder =
             Enum.SortOrder.LayoutOrder
@@ -1346,7 +1597,8 @@ function Library.CreateLib(kavName, themeName)
                     0,
                     0,
                     0,
-                    PageLayout.AbsoluteContentSize.Y
+                    PageLayout
+                        .AbsoluteContentSize.Y
                     + 15
                 )
 
@@ -1358,11 +1610,9 @@ function Library.CreateLib(kavName, themeName)
             updateCanvas
         )
 
-        updateCanvas()
-
-        ----------------------------------------------------
+        --------------------------------------------------------
         -- TAB CLICK
-        ----------------------------------------------------
+        --------------------------------------------------------
 
         register(
             TabButton,
@@ -1398,7 +1648,8 @@ function Library.CreateLib(kavName, themeName)
 
                 end
 
-                Page.Visible = true
+                Page.Visible =
+                    true
 
                 TabButton.BackgroundTransparency =
                     0
@@ -1409,13 +1660,14 @@ function Library.CreateLib(kavName, themeName)
             end
         )
 
-        ----------------------------------------------------
+        --------------------------------------------------------
         -- FIRST TAB
-        ----------------------------------------------------
+        --------------------------------------------------------
 
         if not self.CurrentTab then
 
-            Page.Visible = true
+            Page.Visible =
+                true
 
             TabButton.BackgroundTransparency =
                 0
@@ -1425,28 +1677,34 @@ function Library.CreateLib(kavName, themeName)
 
         end
 
-        ----------------------------------------------------
+        --------------------------------------------------------
         -- TAB OBJECT
-        ----------------------------------------------------
+        --------------------------------------------------------
 
         local Tab = {}
 
-        Tab.Page = Page
-        Tab.Button = TabButton
+        Tab.Page =
+            Page
 
-        ----------------------------------------------------
+        Tab.Button =
+            TabButton
+
+        --------------------------------------------------------
         -- SECTION
-        ----------------------------------------------------
+        --------------------------------------------------------
 
         function Tab:NewSection(
             sectionName
         )
 
             sectionName =
-                sectionName or "Section"
+                sectionName
+                or "Section"
 
             local Section =
-                Instance.new("Frame")
+                Instance.new(
+                    "Frame"
+                )
 
             Section.Name =
                 sectionName
@@ -1468,12 +1726,10 @@ function Library.CreateLib(kavName, themeName)
             Section.Parent =
                 Page
 
-            ------------------------------------------------
-            -- SECTION HEADER
-            ------------------------------------------------
-
             local SectionHeader =
-                Instance.new("TextLabel")
+                Instance.new(
+                    "TextLabel"
+                )
 
             SectionHeader.Name =
                 "Header"
@@ -1506,7 +1762,8 @@ function Library.CreateLib(kavName, themeName)
             SectionHeader.Parent =
                 Section
 
-            SectionHeader.ZIndex = 4
+            SectionHeader.ZIndex =
+                10
 
             addCorner(
                 SectionHeader,
@@ -1521,12 +1778,10 @@ function Library.CreateLib(kavName, themeName)
                 0
             )
 
-            ------------------------------------------------
-            -- ELEMENT CONTAINER
-            ------------------------------------------------
-
             local Container =
-                Instance.new("Frame")
+                Instance.new(
+                    "Frame"
+                )
 
             Container.Name =
                 "Frame"
@@ -1556,30 +1811,25 @@ function Library.CreateLib(kavName, themeName)
             Container.Parent =
                 Section
 
-            local Layout =
-                Instance.new("UIListLayout")
+            local ContainerLayout =
+                Instance.new(
+                    "UIListLayout"
+                )
 
-            Layout.Padding =
+            ContainerLayout.Padding =
                 UDim.new(
                     0,
                     4
                 )
 
-            Layout.SortOrder =
-                Enum.SortOrder.LayoutOrder
-
-            Layout.Parent =
+            ContainerLayout.Parent =
                 Container
-
-            ------------------------------------------------
-            -- ELEMENTS
-            ------------------------------------------------
 
             local Elements = {}
 
-            ------------------------------------------------
+            ----------------------------------------------------
             -- BUTTON
-            ------------------------------------------------
+            ----------------------------------------------------
 
             function Elements:NewButton(
                 name,
@@ -1626,7 +1876,8 @@ function Library.CreateLib(kavName, themeName)
                 Button.Parent =
                     Container
 
-                Button.ZIndex = 20
+                Button.ZIndex =
+                    20
 
                 addCorner(
                     Button,
@@ -1669,9 +1920,11 @@ function Library.CreateLib(kavName, themeName)
                 }
 
                 function Object:Press()
+
                     safeCallback(
                         callback
                     )
+
                 end
 
                 function Object:SetText(
@@ -1684,16 +1937,18 @@ function Library.CreateLib(kavName, themeName)
                 end
 
                 function Object:GetText()
+
                     return Button.Text
+
                 end
 
                 return Object
 
             end
 
-            ------------------------------------------------
+            ----------------------------------------------------
             -- TOGGLE
-            ------------------------------------------------
+            ----------------------------------------------------
 
             function Elements:NewToggle(
                 name,
@@ -1747,7 +2002,8 @@ function Library.CreateLib(kavName, themeName)
                 Toggle.Parent =
                     Container
 
-                Toggle.ZIndex = 20
+                Toggle.ZIndex =
+                    20
 
                 addCorner(
                     Toggle,
@@ -1763,7 +2019,9 @@ function Library.CreateLib(kavName, themeName)
                 )
 
                 local State =
-                    Instance.new("Frame")
+                    Instance.new(
+                        "Frame"
+                    )
 
                 State.Size =
                     UDim2.new(
@@ -1793,7 +2051,8 @@ function Library.CreateLib(kavName, themeName)
                 State.Parent =
                     Toggle
 
-                State.ZIndex = 21
+                State.ZIndex =
+                    21
 
                 addCorner(
                     State,
@@ -1801,7 +2060,9 @@ function Library.CreateLib(kavName, themeName)
                 )
 
                 local Dot =
-                    Instance.new("Frame")
+                    Instance.new(
+                        "Frame"
+                    )
 
                 Dot.Size =
                     UDim2.new(
@@ -1836,7 +2097,8 @@ function Library.CreateLib(kavName, themeName)
                 Dot.Parent =
                     State
 
-                Dot.ZIndex = 22
+                Dot.ZIndex =
+                    22
 
                 addCorner(
                     Dot,
@@ -1909,16 +2171,18 @@ function Library.CreateLib(kavName, themeName)
                 end
 
                 function Object:Get()
+
                     return Value
+
                 end
 
                 return Object
 
             end
 
-            ------------------------------------------------
+            ----------------------------------------------------
             -- SLIDER
-            ------------------------------------------------
+            ----------------------------------------------------
 
             function Elements:NewSlider(
                 name,
@@ -1998,7 +2262,8 @@ function Library.CreateLib(kavName, themeName)
                 Slider.Parent =
                     Container
 
-                Slider.ZIndex = 20
+                Slider.ZIndex =
+                    20
 
                 addCorner(
                     Slider,
@@ -2014,7 +2279,9 @@ function Library.CreateLib(kavName, themeName)
                 )
 
                 local ValueLabel =
-                    Instance.new("TextLabel")
+                    Instance.new(
+                        "TextLabel"
+                    )
 
                 ValueLabel.BackgroundTransparency =
                     1
@@ -2057,10 +2324,13 @@ function Library.CreateLib(kavName, themeName)
                 ValueLabel.Parent =
                     Slider
 
-                ValueLabel.ZIndex = 21
+                ValueLabel.ZIndex =
+                    21
 
                 local Bar =
-                    Instance.new("Frame")
+                    Instance.new(
+                        "Frame"
+                    )
 
                 Bar.Size =
                     UDim2.new(
@@ -2088,7 +2358,8 @@ function Library.CreateLib(kavName, themeName)
                 Bar.Parent =
                     Slider
 
-                Bar.ZIndex = 21
+                Bar.ZIndex =
+                    21
 
                 addCorner(
                     Bar,
@@ -2096,7 +2367,9 @@ function Library.CreateLib(kavName, themeName)
                 )
 
                 local Fill =
-                    Instance.new("Frame")
+                    Instance.new(
+                        "Frame"
+                    )
 
                 Fill.BackgroundColor3 =
                     theme.SchemeColor
@@ -2104,37 +2377,44 @@ function Library.CreateLib(kavName, themeName)
                 Fill.Parent =
                     Bar
 
-                Fill.ZIndex = 22
+                Fill.ZIndex =
+                    22
 
                 addCorner(
                     Fill,
                     5
                 )
 
-                local function getPercent()
+                local function redraw()
+
+                    local percent
 
                     if max == min then
-                        return 1
+
+                        percent = 1
+
+                    else
+
+                        percent =
+                            (
+                                Value - min
+                            )
+                            / (
+                                max - min
+                            )
+
                     end
 
-                    return math.clamp(
-                        (
-                            Value - min
+                    percent =
+                        math.clamp(
+                            percent,
+                            0,
+                            1
                         )
-                        / (
-                            max - min
-                        ),
-                        0,
-                        1
-                    )
-
-                end
-
-                local function redraw()
 
                     Fill.Size =
                         UDim2.new(
-                            getPercent(),
+                            percent,
                             0,
                             1,
                             0
@@ -2149,26 +2429,25 @@ function Library.CreateLib(kavName, themeName)
 
                 local function setFromX(
                     mouseX,
-                    shouldCallback
+                    fire
                 )
 
-                    local barLeft =
+                    local left =
                         Bar.AbsolutePosition.X
 
-                    local barWidth =
+                    local width =
                         Bar.AbsoluteSize.X
 
-                    if barWidth <= 0 then
+                    if width <= 0 then
                         return
                     end
 
                     local alpha =
                         math.clamp(
                             (
-                                mouseX
-                                - barLeft
+                                mouseX - left
                             )
-                            / barWidth,
+                            / width,
                             0,
                             1
                         )
@@ -2194,7 +2473,7 @@ function Library.CreateLib(kavName, themeName)
 
                     redraw()
 
-                    if shouldCallback then
+                    if fire then
 
                         safeCallback(
                             callback,
@@ -2219,10 +2498,12 @@ function Library.CreateLib(kavName, themeName)
                         end
 
                         ActiveSlider = {
-                            Update = function(x)
+                            Update = function(
+                                mouseX
+                            )
 
                                 setFromX(
-                                    x,
+                                    mouseX,
                                     true
                                 )
 
@@ -2249,7 +2530,7 @@ function Library.CreateLib(kavName, themeName)
                         tonumber(value)
                         or min
 
-                    value =
+                    Value =
                         math.clamp(
                             value,
                             min,
@@ -2258,7 +2539,7 @@ function Library.CreateLib(kavName, themeName)
 
                     Value =
                         math.floor(
-                            value + 0.5
+                            Value + 0.5
                         )
 
                     redraw()
@@ -2271,16 +2552,18 @@ function Library.CreateLib(kavName, themeName)
                 end
 
                 function Object:Get()
+
                     return Value
+
                 end
 
                 return Object
 
             end
 
-            ------------------------------------------------
+            ----------------------------------------------------
             -- DROPDOWN
-            ------------------------------------------------
+            ----------------------------------------------------
 
             function Elements:NewDropdown(
                 name,
@@ -2290,7 +2573,8 @@ function Library.CreateLib(kavName, themeName)
             )
 
                 options =
-                    options or {}
+                    options
+                    or {}
 
                 callback =
                     callback
@@ -2335,7 +2619,8 @@ function Library.CreateLib(kavName, themeName)
                 Dropdown.Parent =
                     Container
 
-                Dropdown.ZIndex = 20
+                Dropdown.ZIndex =
+                    20
 
                 addCorner(
                     Dropdown,
@@ -2351,9 +2636,12 @@ function Library.CreateLib(kavName, themeName)
                 )
 
                 local List =
-                    Instance.new("Frame")
+                    Instance.new(
+                        "Frame"
+                    )
 
-                List.Name = "List"
+                List.Name =
+                    "List"
 
                 List.Position =
                     UDim2.new(
@@ -2377,13 +2665,14 @@ function Library.CreateLib(kavName, themeName)
                 List.BackgroundColor3 =
                     theme.ElementColor
 
-                List.BorderSizePixel = 0
+                List.Visible =
+                    false
 
-                List.Visible = false
+                List.ZIndex =
+                    100
 
-                List.ZIndex = 100
-
-                List.Parent = Dropdown
+                List.Parent =
+                    Dropdown
 
                 addCorner(
                     List,
@@ -2417,7 +2706,6 @@ function Library.CreateLib(kavName, themeName)
                     Dropdown.Text =
                         tostring(
                             name
-                            or "Dropdown"
                         )
                         .. ": "
                         .. tostring(
@@ -2439,7 +2727,9 @@ function Library.CreateLib(kavName, themeName)
                         )
 
                     Option.Name =
-                        tostring(option)
+                        tostring(
+                            option
+                        )
 
                     Option.Size =
                         UDim2.new(
@@ -2453,7 +2743,9 @@ function Library.CreateLib(kavName, themeName)
                         theme.Background
 
                     Option.Text =
-                        tostring(option)
+                        tostring(
+                            option
+                        )
 
                     Option.TextColor3 =
                         theme.TextColor
@@ -2463,7 +2755,8 @@ function Library.CreateLib(kavName, themeName)
                     Option.Font =
                         Enum.Font.Gotham
 
-                    Option.ZIndex = 101
+                    Option.ZIndex =
+                        101
 
                     Option.Parent =
                         List
@@ -2536,7 +2829,9 @@ function Library.CreateLib(kavName, themeName)
                             )
 
                             return true
+
                         end
+
                     end
 
                     return false
@@ -2544,16 +2839,18 @@ function Library.CreateLib(kavName, themeName)
                 end
 
                 function Object:Get()
+
                     return Current
+
                 end
 
                 return Object
 
             end
 
-            ------------------------------------------------
+            ----------------------------------------------------
             -- LABEL
-            ------------------------------------------------
+            ----------------------------------------------------
 
             function Elements:NewLabel(
                 text
@@ -2594,7 +2891,8 @@ function Library.CreateLib(kavName, themeName)
                 Label.Parent =
                     Container
 
-                Label.ZIndex = 20
+                Label.ZIndex =
+                    20
 
                 local Object = {
                     Instance = Label
@@ -2605,21 +2903,25 @@ function Library.CreateLib(kavName, themeName)
                 )
 
                     Label.Text =
-                        tostring(value)
+                        tostring(
+                            value
+                        )
 
                 end
 
                 function Object:GetText()
+
                     return Label.Text
+
                 end
 
                 return Object
 
             end
 
-            ------------------------------------------------
+            ----------------------------------------------------
             -- TEXTBOX
-            ------------------------------------------------
+            ----------------------------------------------------
 
             function Elements:NewTextBox(
                 name,
@@ -2659,7 +2961,8 @@ function Library.CreateLib(kavName, themeName)
 
                 Box.PlaceholderText =
                     tostring(
-                        name or "TextBox"
+                        name
+                        or "TextBox"
                     )
 
                 Box.TextColor3 =
@@ -2686,7 +2989,8 @@ function Library.CreateLib(kavName, themeName)
                 Box.Parent =
                     Container
 
-                Box.ZIndex = 20
+                Box.ZIndex =
+                    20
 
                 addCorner(
                     Box,
@@ -2730,7 +3034,9 @@ function Library.CreateLib(kavName, themeName)
                 )
 
                     Box.Text =
-                        tostring(value)
+                        tostring(
+                            value
+                        )
 
                     safeCallback(
                         callback,
@@ -2740,20 +3046,18 @@ function Library.CreateLib(kavName, themeName)
                 end
 
                 function Object:Get()
-                    return Box.Text
-                end
 
-                function Object:Focus()
-                    Box:CaptureFocus()
+                    return Box.Text
+
                 end
 
                 return Object
 
             end
 
-            ------------------------------------------------
+            ----------------------------------------------------
             -- KEYBIND
-            ------------------------------------------------
+            ----------------------------------------------------
 
             function Elements:NewKeybind(
                 name,
@@ -2770,8 +3074,7 @@ function Library.CreateLib(kavName, themeName)
                     default
                     or Enum.KeyCode.Unknown
 
-                local Waiting =
-                    false
+                local Waiting = false
 
                 local BindConnection =
                     nil
@@ -2807,7 +3110,8 @@ function Library.CreateLib(kavName, themeName)
                 Keybind.Parent =
                     Container
 
-                Keybind.ZIndex = 20
+                Keybind.ZIndex =
+                    20
 
                 addCorner(
                     Keybind,
@@ -2821,7 +3125,6 @@ function Library.CreateLib(kavName, themeName)
                         Keybind.Text =
                             tostring(
                                 name
-                                or "Keybind"
                             )
                             .. " [PRESS KEY]"
 
@@ -2830,7 +3133,6 @@ function Library.CreateLib(kavName, themeName)
                         Keybind.Text =
                             tostring(
                                 name
-                                or "Keybind"
                             )
                             .. " ["
                             .. CurrentKey.Name
@@ -2848,7 +3150,8 @@ function Library.CreateLib(kavName, themeName)
                         return
                     end
 
-                    Waiting = true
+                    Waiting =
+                        true
 
                     updateText()
 
@@ -2877,14 +3180,17 @@ function Library.CreateLib(kavName, themeName)
                                 CurrentKey =
                                     input.KeyCode
 
-                                Waiting = false
+                                Waiting =
+                                    false
 
                                 updateText()
 
                                 if BindConnection then
 
                                     BindConnection:Disconnect()
-                                    BindConnection = nil
+
+                                    BindConnection =
+                                        nil
 
                                 end
 
@@ -2895,6 +3201,7 @@ function Library.CreateLib(kavName, themeName)
 
                             end
                         )
+
                 end
 
                 register(
@@ -2918,18 +3225,21 @@ function Library.CreateLib(kavName, themeName)
                         ~= "EnumItem" then
 
                         return false
+
                     end
 
                     if key.EnumType
                         ~= Enum.KeyCode then
 
                         return false
+
                     end
 
                     CurrentKey =
                         key
 
-                    Waiting = false
+                    Waiting =
+                        false
 
                     updateText()
 
@@ -2943,16 +3253,18 @@ function Library.CreateLib(kavName, themeName)
                 end
 
                 function Object:Get()
+
                     return CurrentKey
+
                 end
 
                 return Object
 
             end
 
-            ------------------------------------------------
+            ----------------------------------------------------
             -- COLOR PICKER
-            ------------------------------------------------
+            ----------------------------------------------------
 
             function Elements:NewColorPicker(
                 name,
@@ -2972,8 +3284,6 @@ function Library.CreateLib(kavName, themeName)
                         255,
                         255
                     )
-
-                local Opened = false
 
                 local Picker =
                     Instance.new(
@@ -2998,7 +3308,6 @@ function Library.CreateLib(kavName, themeName)
                 Picker.Text =
                     tostring(
                         name
-                        or "ColorPicker"
                     )
 
                 Picker.TextColor3 =
@@ -3015,7 +3324,8 @@ function Library.CreateLib(kavName, themeName)
                 Picker.Parent =
                     Container
 
-                Picker.ZIndex = 20
+                Picker.ZIndex =
+                    20
 
                 addCorner(
                     Picker,
@@ -3031,7 +3341,9 @@ function Library.CreateLib(kavName, themeName)
                 )
 
                 local Preview =
-                    Instance.new("Frame")
+                    Instance.new(
+                        "Frame"
+                    )
 
                 Preview.Size =
                     UDim2.new(
@@ -3055,312 +3367,40 @@ function Library.CreateLib(kavName, themeName)
                 Preview.Parent =
                     Picker
 
-                Preview.ZIndex = 21
+                Preview.ZIndex =
+                    21
 
                 addCorner(
                     Preview,
                     4
                 )
 
-                local Popup =
-                    Instance.new("Frame")
-
-                Popup.Name =
-                    "ColorPopup"
-
-                Popup.Position =
-                    UDim2.new(
-                        0,
-                        0,
-                        1,
-                        4
-                    )
-
-                Popup.Size =
-                    UDim2.new(
-                        1,
-                        0,
-                        0,
-                        122
-                    )
-
-                Popup.BackgroundColor3 =
-                    theme.Background
-
-                Popup.BorderSizePixel = 0
-
-                Popup.Visible = false
-
-                Popup.ZIndex = 100
-
-                Popup.Parent = Picker
-
-                addCorner(
-                    Popup,
-                    5
-                )
-
-                local H, S, V =
-                    Color3.toHSV(
-                        CurrentColor
-                    )
-
-                local function applyColor()
-
-                    CurrentColor =
-                        Color3.fromHSV(
-                            H,
-                            S,
-                            V
-                        )
-
-                    Preview.BackgroundColor3 =
-                        CurrentColor
-
-                    safeCallback(
-                        callback,
-                        CurrentColor
-                    )
-
-                end
-
-                local function makeHSVSlider(
-                    labelText,
-                    initial,
-                    y,
-                    onChanged
-                )
-
-                    local Holder =
-                        Instance.new(
-                            "TextLabel"
-                        )
-
-                    Holder.BackgroundTransparency =
-                        1
-
-                    Holder.Position =
-                        UDim2.new(
-                            0,
-                            8,
-                            0,
-                            y
-                        )
-
-                    Holder.Size =
-                        UDim2.new(
-                            1,
-                            -16,
-                            0,
-                            30
-                        )
-
-                    Holder.Text =
-                        labelText
-
-                    Holder.TextColor3 =
-                        theme.TextColor
-
-                    Holder.TextSize = 11
-
-                    Holder.Font =
-                        Enum.Font.Gotham
-
-                    Holder.TextXAlignment =
-                        Enum.TextXAlignment.Left
-
-                    Holder.Parent =
-                        Popup
-
-                    Holder.ZIndex = 101
-
-                    local Bar =
-                        Instance.new("Frame")
-
-                    Bar.Position =
-                        UDim2.new(
-                            0,
-                            28,
-                            0.5,
-                            1
-                        )
-
-                    Bar.Size =
-                        UDim2.new(
-                            1,
-                            -28,
-                            0,
-                            5
-                        )
-
-                    Bar.BackgroundColor3 =
-                        Color3.fromRGB(
-                            55,
-                            55,
-                            55
-                        )
-
-                    Bar.Parent =
-                        Holder
-
-                    Bar.ZIndex = 102
-
-                    addCorner(
-                        Bar,
-                        5
-                    )
-
-                    local Fill =
-                        Instance.new("Frame")
-
-                    Fill.Size =
-                        UDim2.new(
-                            initial,
-                            0,
-                            1,
-                            0
-                        )
-
-                    Fill.BackgroundColor3 =
-                        theme.SchemeColor
-
-                    Fill.Parent =
-                        Bar
-
-                    Fill.ZIndex = 103
-
-                    addCorner(
-                        Fill,
-                        5
-                    )
-
-                    register(
-                        Holder,
-                        function()
-
-                            local point =
-                                getMouseSurfacePosition()
-
-                            if not point then
-                                return
-                            end
-
-                            local left =
-                                Bar.AbsolutePosition.X
-
-                            local width =
-                                Bar.AbsoluteSize.X
-
-                            if width <= 0 then
-                                return
-                            end
-
-                            local value =
-                                math.clamp(
-                                    (
-                                        point.X
-                                        - left
-                                    )
-                                    / width,
-                                    0,
-                                    1
-                                )
-
-                            Fill.Size =
-                                UDim2.new(
-                                    value,
-                                    0,
-                                    1,
-                                    0
-                                )
-
-                            onChanged(
-                                value
-                            )
-
-                            ActiveSlider = {
-                                Update =
-                                    function(x)
-
-                                        local v =
-                                            math.clamp(
-                                                (
-                                                    x
-                                                    - left
-                                                )
-                                                / width,
-                                                0,
-                                                1
-                                            )
-
-                                        Fill.Size =
-                                            UDim2.new(
-                                                v,
-                                                0,
-                                                1,
-                                                0
-                                            )
-
-                                        onChanged(
-                                            v
-                                        )
-
-                                    end
-                            }
-
-                        end
-                    )
-
-                end
-
-                makeHSVSlider(
-                    "H",
-                    H,
-                    6,
-                    function(value)
-
-                        H = value
-
-                        applyColor()
-
-                    end
-                )
-
-                makeHSVSlider(
-                    "S",
-                    S,
-                    39,
-                    function(value)
-
-                        S = value
-
-                        applyColor()
-
-                    end
-                )
-
-                makeHSVSlider(
-                    "V",
-                    V,
-                    72,
-                    function(value)
-
-                        V = value
-
-                        applyColor()
-
-                    end
-                )
-
                 register(
                     Picker,
                     function()
 
-                        Opened =
-                            not Opened
+                        local h, s, v =
+                            Color3.toHSV(
+                                CurrentColor
+                            )
 
-                        Popup.Visible =
-                            Opened
+                        h =
+                            (h + 0.1) % 1
+
+                        CurrentColor =
+                            Color3.fromHSV(
+                                h,
+                                s,
+                                v
+                            )
+
+                        Preview.BackgroundColor3 =
+                            CurrentColor
+
+                        safeCallback(
+                            callback,
+                            CurrentColor
+                        )
 
                     end
                 )
@@ -3377,22 +3417,18 @@ function Library.CreateLib(kavName, themeName)
                         ~= "Color3" then
 
                         return false
+
                     end
 
                     CurrentColor =
                         color
 
-                    H, S, V =
-                        Color3.toHSV(
-                            color
-                        )
-
                     Preview.BackgroundColor3 =
-                        CurrentColor
+                        color
 
                     safeCallback(
                         callback,
-                        CurrentColor
+                        color
                     )
 
                     return true
@@ -3400,16 +3436,14 @@ function Library.CreateLib(kavName, themeName)
                 end
 
                 function Object:Get()
+
                     return CurrentColor
+
                 end
 
                 return Object
 
             end
-
-            ------------------------------------------------
-            -- RETURN ELEMENT API
-            ------------------------------------------------
 
             return Elements
 
@@ -3424,108 +3458,44 @@ function Library.CreateLib(kavName, themeName)
 
     end
 
-    --------------------------------------------------------
-    -- CHANGE COLOR
-    --------------------------------------------------------
-
-    function self:ChangeColor(
-        property,
-        color
-    )
-
-        if self.Theme[property] == nil then
-            return false
-        end
-
-        self.Theme[property] =
-            color
-
-        if property == "Background" then
-
-            Main.BackgroundColor3 =
-                color
-
-        elseif property == "Header" then
-
-            Header.BackgroundColor3 =
-                color
-
-            HeaderCover.BackgroundColor3 =
-                color
-
-            Side.BackgroundColor3 =
-                color
-
-        elseif property == "TextColor" then
-
-            Title.TextColor3 =
-                color
-
-        elseif property == "SchemeColor" then
-
-            for _, object in ipairs(
-                Surface:GetDescendants()
-            ) do
-
-                if object:IsA(
-                    "TextLabel"
-                )
-                and object.Parent == Side then
-
-                    object.BackgroundColor3 =
-                        color
-
-                end
-            end
-
-        end
-
-        return true
-    end
-
-    --------------------------------------------------------
-    -- SETTINGS TAB
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- SETTINGS
+    ------------------------------------------------------------
 
     local SettingsTab =
         self:NewTab(
             "Settings"
         )
 
-    --------------------------------------------------------
-    -- INTERFACE SECTION
-    --------------------------------------------------------
-
-    local Interface =
+    local Settings =
         SettingsTab:NewSection(
             "Interface"
         )
 
     --------------------------------------------------------
-    -- TOGGLE BIND
+    -- TOGGLE KEY
     --------------------------------------------------------
 
-    local ToggleBind =
-        Interface:NewKeybind(
-            "Toggle UI",
-            "Open / close GUI",
-            Enum.KeyCode.Tab,
-            function(key)
+    Settings:NewKeybind(
+        "Toggle UI",
+        "",
+        Enum.KeyCode.Tab,
+        function(key)
 
-                self:SetToggleKey(
-                    key
-                )
+            self:SetToggleKey(
+                key
+            )
 
-            end
-        )
+        end
+    )
 
     --------------------------------------------------------
     -- GUI SIZE
     --------------------------------------------------------
 
-    Interface:NewSlider(
+    Settings:NewSlider(
         "GUI Size",
-        "Window size",
+        "",
         200,
         50,
         100,
@@ -3542,9 +3512,9 @@ function Library.CreateLib(kavName, themeName)
     -- GUI DISTANCE
     --------------------------------------------------------
 
-    Interface:NewSlider(
+    Settings:NewSlider(
         "GUI Distance",
-        "Distance from player",
+        "",
         20,
         2,
         7,
@@ -3561,9 +3531,9 @@ function Library.CreateLib(kavName, themeName)
     -- GUI HEIGHT
     --------------------------------------------------------
 
-    Interface:NewSlider(
+    Settings:NewSlider(
         "GUI Height",
-        "Height above / below player",
+        "",
         6,
         -3,
         1.7,
@@ -3580,9 +3550,9 @@ function Library.CreateLib(kavName, themeName)
     -- FADE SPEED
     --------------------------------------------------------
 
-    Interface:NewSlider(
+    Settings:NewSlider(
         "Fade Speed",
-        "Animation duration",
+        "",
         300,
         5,
         25,
@@ -3596,27 +3566,27 @@ function Library.CreateLib(kavName, themeName)
     )
 
     --------------------------------------------------------
-    -- INFORMATION
+    -- INFO
     --------------------------------------------------------
 
-    Interface:NewLabel(
+    Settings:NewLabel(
         "RMB = interact"
     )
 
-    Interface:NewLabel(
+    Settings:NewLabel(
         "Tab = open / close"
     )
 
-    --------------------------------------------------------
-    -- INITIAL STATE
-    --------------------------------------------------------
+    ------------------------------------------------------------
+    -- INITIAL
+    ------------------------------------------------------------
 
-    self.Visible = false
-    self.Animating = false
+    WindowPart.Transparency =
+        1
 
-    WindowPart.Transparency = 1
-
-    setGuiAlpha(1)
+    setGuiAlpha(
+        1
+    )
 
     local initial =
         getFollowCFrame()
@@ -3625,10 +3595,6 @@ function Library.CreateLib(kavName, themeName)
         WindowPart.CFrame =
             initial
     end
-
-    --------------------------------------------------------
-    -- RETURN
-    --------------------------------------------------------
 
     return self
 end
