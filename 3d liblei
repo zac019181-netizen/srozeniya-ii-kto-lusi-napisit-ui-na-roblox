@@ -3283,48 +3283,48 @@ function Library.CreateLib(kavName, themeName)
 
             end
 
-            ----------------------------------------------------
+            ------------------------------------------------------------
             -- DROPDOWN
-            --
-            -- IMPORTANT:
-            -- Options are NOT registered while closed.
-            ----------------------------------------------------
-
+            ------------------------------------------------------------
+            
             function Elements:NewDropdown(
                 name,
                 tip,
                 options,
                 callback
             )
-
+            
                 callback =
-                    callback
-                    or function() end
-
+                    callback or function() end
+            
                 options =
-                    options
-                    or {}
-
+                    options or {}
+            
                 local Current =
                     options[1]
-
+            
                 local Opened =
                     false
-
+            
                 local CLOSED_HEIGHT =
                     38
-
+            
                 local OPTION_HEIGHT =
                     30
-
+            
+                local DROPDOWN_PADDING =
+                    8
+            
+                --------------------------------------------------------
+                -- DROPDOWN
+                --------------------------------------------------------
+            
                 local Dropdown =
-                    Instance.new(
-                        "Frame"
-                    )
-
+                    Instance.new("Frame")
+            
                 Dropdown.Name =
                     name or "Dropdown"
-
+            
                 Dropdown.Size =
                     UDim2.new(
                         1,
@@ -3332,39 +3332,37 @@ function Library.CreateLib(kavName, themeName)
                         0,
                         CLOSED_HEIGHT
                     )
-
+            
                 Dropdown.BackgroundColor3 =
                     theme.ElementColor
-
+            
                 Dropdown.BorderSizePixel =
                     0
-
+            
                 Dropdown.ClipsDescendants =
                     true
-
+            
                 Dropdown.Parent =
                     Container
-
+            
                 Dropdown.ZIndex =
                     50
-
+            
                 addCorner(
                     Dropdown,
                     5
                 )
-
-                ------------------------------------------------
+            
+                --------------------------------------------------------
                 -- HEADER
-                ------------------------------------------------
-
+                --------------------------------------------------------
+            
                 local DropHeader =
-                    Instance.new(
-                        "TextLabel"
-                    )
-
+                    Instance.new("TextLabel")
+            
                 DropHeader.Name =
                     "Header"
-
+            
                 DropHeader.Size =
                     UDim2.new(
                         1,
@@ -3372,28 +3370,28 @@ function Library.CreateLib(kavName, themeName)
                         0,
                         CLOSED_HEIGHT
                     )
-
+            
                 DropHeader.BackgroundTransparency =
                     1
-
+            
                 DropHeader.TextColor3 =
                     theme.TextColor
-
+            
                 DropHeader.TextSize =
                     13
-
+            
                 DropHeader.Font =
                     Enum.Font.Gotham
-
+            
                 DropHeader.TextXAlignment =
                     Enum.TextXAlignment.Left
-
+            
                 DropHeader.Parent =
                     Dropdown
-
+            
                 DropHeader.ZIndex =
                     55
-
+            
                 addPadding(
                     DropHeader,
                     10,
@@ -3401,19 +3399,17 @@ function Library.CreateLib(kavName, themeName)
                     0,
                     0
                 )
-
-                ------------------------------------------------
-                -- OPTIONS CONTAINER
-                ------------------------------------------------
-
+            
+                --------------------------------------------------------
+                -- OPTION LIST
+                --------------------------------------------------------
+            
                 local List =
-                    Instance.new(
-                        "Frame"
-                    )
-
+                    Instance.new("Frame")
+            
                 List.Name =
                     "Options"
-
+            
                 List.Position =
                     UDim2.new(
                         0,
@@ -3421,7 +3417,7 @@ function Library.CreateLib(kavName, themeName)
                         0,
                         CLOSED_HEIGHT
                     )
-
+            
                 List.Size =
                     UDim2.new(
                         1,
@@ -3429,19 +3425,22 @@ function Library.CreateLib(kavName, themeName)
                         0,
                         0
                     )
-
+            
                 List.BackgroundTransparency =
                     1
-
+            
+                List.BorderSizePixel =
+                    0
+            
                 List.Visible =
                     false
-
+            
                 List.Parent =
                     Dropdown
-
+            
                 List.ZIndex =
                     60
-
+            
                 addPadding(
                     List,
                     4,
@@ -3449,33 +3448,37 @@ function Library.CreateLib(kavName, themeName)
                     4,
                     4
                 )
-
+            
+                --------------------------------------------------------
+                -- LIST LAYOUT
+                --------------------------------------------------------
+            
                 local ListLayout =
                     Instance.new(
                         "UIListLayout"
                     )
-
+            
                 ListLayout.Padding =
                     UDim.new(
                         0,
                         3
                     )
-
+            
                 ListLayout.SortOrder =
                     Enum.SortOrder.LayoutOrder
-
+            
                 ListLayout.Parent =
                     List
-
+            
+                --------------------------------------------------------
+                -- OPTIONS
+                --------------------------------------------------------
+            
                 local OptionObjects =
                     {}
-
-                ------------------------------------------------
-                -- HEADER TEXT
-                ------------------------------------------------
-
+            
                 local function updateHeader()
-
+                
                     DropHeader.Text =
                         tostring(
                             name
@@ -3485,29 +3488,27 @@ function Library.CreateLib(kavName, themeName)
                             Current
                             or "None"
                         )
-
+            
                 end
-
+            
                 updateHeader()
-
-                ------------------------------------------------
+            
+                --------------------------------------------------------
                 -- CREATE OPTIONS
-                ------------------------------------------------
-
-                for _, option in ipairs(
+                --------------------------------------------------------
+            
+                for index, option in ipairs(
                     options
                 ) do
-
+            
                     local Option =
                         Instance.new(
                             "TextLabel"
                         )
-
+            
                     Option.Name =
-                        tostring(
-                            option
-                        )
-
+                        tostring(option)
+            
                     Option.Size =
                         UDim2.new(
                             1,
@@ -3515,102 +3516,170 @@ function Library.CreateLib(kavName, themeName)
                             0,
                             OPTION_HEIGHT
                         )
-
+            
                     Option.BackgroundColor3 =
                         theme.Background
-
+            
                     Option.Text =
-                        tostring(
-                            option
-                        )
-
+                        tostring(option)
+            
                     Option.TextColor3 =
                         theme.TextColor
-
+            
                     Option.TextSize =
                         12
-
+            
                     Option.Font =
                         Enum.Font.Gotham
-
+            
                     Option.Visible =
                         false
-
+            
                     Option.Parent =
                         List
-
+            
                     Option.ZIndex =
                         65
-
+            
                     addCorner(
                         Option,
                         4
                     )
-
+            
                     table.insert(
                         OptionObjects,
                         Option
                     )
-
-                    ------------------------------------------------
-                    -- VERY IMPORTANT:
-                    -- Do NOT register these into the global
-                    -- hitbox table until dropdown is OPEN.
-                    ------------------------------------------------
-
+            
                 end
-
-                ------------------------------------------------
-                -- OPTION HITBOX MANAGEMENT
-                ------------------------------------------------
-
+            
+                --------------------------------------------------------
+                -- CALCULATE LIST HEIGHT
+                --------------------------------------------------------
+            
+                local function getListHeight()
+                
+                    local contentHeight =
+                        ListLayout.AbsoluteContentSize.Y
+            
+                    return contentHeight + 8
+            
+                end
+            
+                --------------------------------------------------------
+                -- CALCULATE DROPDOWN HEIGHT
+                --------------------------------------------------------
+            
+                local function getOpenHeight()
+                
+                    return
+                        CLOSED_HEIGHT
+                        + getListHeight()
+            
+                end
+            
+                --------------------------------------------------------
+                -- DISABLE OPTIONS
+                --------------------------------------------------------
+            
+                local function disableOptions()
+                
+                    for _, option in ipairs(
+                        OptionObjects
+                    ) do
+            
+                        Hitboxes[option] =
+                            nil
+            
+                        option.Visible =
+                            false
+            
+                    end
+            
+                    List.Visible =
+                        false
+            
+                    List.Size =
+                        UDim2.new(
+                            1,
+                            0,
+                            0,
+                            0
+                        )
+            
+                end
+            
+                --------------------------------------------------------
+                -- ENABLE OPTIONS
+                --------------------------------------------------------
+            
                 local function enableOptions()
-
+                
+                    List.Visible =
+                        true
+            
+                    ----------------------------------------------------
+                    -- THIS WAS THE MISSING PART
+                    ----------------------------------------------------
+            
+                    List.Size =
+                        UDim2.new(
+                            1,
+                            0,
+                            0,
+                            getListHeight()
+                        )
+            
                     for index, option in ipairs(
                         OptionObjects
                     ) do
-
+            
                         option.Visible =
                             true
-
+            
+                        ------------------------------------------------
+                        -- OPTIONS ARE REGISTERED ONLY WHILE OPEN
+                        ------------------------------------------------
+            
                         Hitboxes[option] =
                             function()
-
+                            
+                                if not Opened then
+                                    return
+                                end
+            
                                 Current =
                                     options[index]
-
+            
                                 updateHeader()
-
+            
                                 safeCallback(
                                     callback,
                                     Current
                                 )
-
+            
                                 Opened =
                                     false
-
+            
                                 ------------------------------------------------
-                                -- REMOVE OPTION HITBOXES FIRST
+                                -- REMOVE ALL OPTION HITBOXES
                                 ------------------------------------------------
-
+            
                                 for _, optionObject in ipairs(
                                     OptionObjects
                                 ) do
-
+            
                                     Hitboxes[
                                         optionObject
                                     ] = nil
-
+            
                                 end
-
+            
                                 ------------------------------------------------
-                                -- CLOSE
+                                -- ANIMATE LIST CLOSED
                                 ------------------------------------------------
-
-                                List.Visible =
-                                    false
-
-                                trackTween(
+            
+                                local closeTween =
                                     tween(
                                         Dropdown,
                                         0.18,
@@ -3624,661 +3693,332 @@ function Library.CreateLib(kavName, themeName)
                                                 )
                                         }
                                     )
+            
+                                tween(
+                                    List,
+                                    0.18,
+                                    {
+                                        Size =
+                                            UDim2.new(
+                                                1,
+                                                0,
+                                                0,
+                                                0
+                                            )
+                                    }
                                 )
-
+            
+                                closeTween.Completed:Connect(
+                                    function()
+                                    
+                                        if not Dropdown.Parent then
+                                            return
+                                        end
+            
+                                        if Opened then
+                                            return
+                                        end
+            
+                                        for _, optionObject in ipairs(
+                                            OptionObjects
+                                        ) do
+            
+                                            optionObject.Visible =
+                                                false
+            
+                                        end
+            
+                                        List.Visible =
+                                            false
+            
+                                    end
+                                )
+            
                             end
-
+            
                     end
-
+            
                 end
-
-                local function disableOptions()
-
-                    for _, option in ipairs(
-                        OptionObjects
-                    ) do
-
-                        Hitboxes[option] =
-                            nil
-
-                        option.Visible =
-                            false
-
-                    end
-
-                    List.Visible =
-                        false
-
-                end
-
+            
+                --------------------------------------------------------
+                -- OPEN
+                --------------------------------------------------------
+            
                 local function openDropdown()
-
+                
                     if Opened then
                         return
                     end
-
+            
+                    if not self.Visible
+                        or self.Animating then
+            
+                        return
+                    end
+            
                     Opened =
                         true
-
-                    ------------------------------------------------
-                    -- Only NOW are options visible & clickable.
-                    ------------------------------------------------
-
+            
+                    ----------------------------------------------------
+                    -- FIRST SHOW OPTIONS
+                    ----------------------------------------------------
+            
                     enableOptions()
-
-                    List.Visible =
-                        true
-
-                    local openHeight =
+            
+                    ----------------------------------------------------
+                    -- START FROM ZERO HEIGHT
+                    ----------------------------------------------------
+            
+                    Dropdown.Size =
+                        UDim2.new(
+                            1,
+                            0,
+                            0,
+                            CLOSED_HEIGHT
+                        )
+            
+                    List.Size =
+                        UDim2.new(
+                            1,
+                            0,
+                            0,
+                            0
+                        )
+            
+                    local targetListHeight =
+                        getListHeight()
+            
+                    local targetDropdownHeight =
                         CLOSED_HEIGHT
-                        + ListLayout
-                            .AbsoluteContentSize.Y
-                        + 8
-
-                    trackTween(
+                        + targetListHeight
+            
+                    ----------------------------------------------------
+                    -- DROPDOWN EXPANDS DOWN
+                    ----------------------------------------------------
+            
+                    tween(
+                        Dropdown,
+                        0.22,
+                        {
+                            Size =
+                                UDim2.new(
+                                    1,
+                                    0,
+                                    0,
+                                    targetDropdownHeight
+                                )
+                        },
+                        Enum.EasingStyle.Quart
+                    )
+            
+                    tween(
+                        List,
+                        0.22,
+                        {
+                            Size =
+                                UDim2.new(
+                                    1,
+                                    0,
+                                    0,
+                                    targetListHeight
+                                )
+                        },
+                        Enum.EasingStyle.Quart
+                    )
+            
+                end
+            
+                --------------------------------------------------------
+                -- CLOSE
+                --------------------------------------------------------
+            
+                local function closeDropdown()
+                
+                    if not Opened then
+                        return
+                    end
+            
+                    Opened =
+                        false
+            
+                    ----------------------------------------------------
+                    -- REMOVE HITBOXES IMMEDIATELY
+                    ----------------------------------------------------
+            
+                    for _, option in ipairs(
+                        OptionObjects
+                    ) do
+            
+                        Hitboxes[option] =
+                            nil
+            
+                    end
+            
+                    ----------------------------------------------------
+                    -- BOTH CONTAINERS SHRINK
+                    ----------------------------------------------------
+            
+                    local dropdownTween =
                         tween(
                             Dropdown,
-                            0.22,
+                            0.18,
                             {
                                 Size =
                                     UDim2.new(
                                         1,
                                         0,
                                         0,
-                                        openHeight
+                                        CLOSED_HEIGHT
                                     )
-                            },
-                            Enum.EasingStyle.Quart
+                            }
                         )
+            
+                    tween(
+                        List,
+                        0.18,
+                        {
+                            Size =
+                                UDim2.new(
+                                    1,
+                                    0,
+                                    0,
+                                    0
+                                )
+                        }
                     )
-
-                end
-
-                local function closeDropdown()
-
-                    if not Opened then
-                        return
-                    end
-
-                    Opened =
-                        false
-
-                    ------------------------------------------------
-                    -- Remove hitboxes immediately.
-                    ------------------------------------------------
-
-                    for _, option in ipairs(
-                        OptionObjects
-                    ) do
-
-                        Hitboxes[option] =
-                            nil
-
-                    end
-
-                    local closeTween =
-                        trackTween(
-                            tween(
-                                Dropdown,
-                                0.18,
-                                {
-                                    Size =
-                                        UDim2.new(
-                                            1,
-                                            0,
-                                            0,
-                                            CLOSED_HEIGHT
-                                        )
-                                }
-                            )
-                        )
-
-                    if closeTween then
-
-                        closeTween.Completed:Connect(
-                            function()
-
-                                if not Dropdown.Parent then
-                                    return
-                                end
-
-                                if Opened then
-                                    return
-                                end
-
-                                for _, option in ipairs(
-                                    OptionObjects
-                                ) do
-
-                                    option.Visible =
-                                        false
-
-                                end
-
-                                List.Visible =
-                                    false
-
+            
+                    dropdownTween.Completed:Connect(
+                        function()
+                        
+                            if not Dropdown.Parent then
+                                return
                             end
-                        )
-
-                    end
-
+            
+                            if Opened then
+                                return
+                            end
+            
+                            for _, option in ipairs(
+                                OptionObjects
+                            ) do
+            
+                                option.Visible =
+                                    false
+            
+                            end
+            
+                            List.Visible =
+                                false
+            
+                        end
+                    )
+            
                 end
-
-                ------------------------------------------------
-                -- HEADER HITBOX ONLY
-                ------------------------------------------------
-
+            
+                --------------------------------------------------------
+                -- HEADER HITBOX
+                --------------------------------------------------------
+            
                 Hitboxes[DropHeader] =
                     function()
-
+                    
                         if Opened then
                             closeDropdown()
                         else
                             openDropdown()
                         end
-
+            
                     end
-
-                ------------------------------------------------
-                -- CLOSE WHEN HIDDEN / DESTROYED
-                ------------------------------------------------
-
+            
+                --------------------------------------------------------
+                -- REMEMBER DROPDOWN
+                --------------------------------------------------------
+            
                 self._Dropdowns =
                     self._Dropdowns
                     or {}
-
+            
                 table.insert(
                     self._Dropdowns,
                     {
-                        Close = closeDropdown
+                        Close =
+                            closeDropdown
                     }
                 )
-
-                ------------------------------------------------
+            
+                --------------------------------------------------------
                 -- OBJECT
-                ------------------------------------------------
-
+                --------------------------------------------------------
+            
                 local Object = {
+                
                     Instance =
                         Dropdown,
-
+            
                     Header =
                         DropHeader,
-
+            
                     Options =
                         List
+            
                 }
-
+            
                 function Object:Set(
                     value
                 )
-
+            
                     for index, option in ipairs(
                         options
                     ) do
-
-                        if option ==
-                            value then
-
+            
+                        if option == value then
+                        
                             Current =
                                 value
-
+            
                             updateHeader()
-
+            
                             safeCallback(
                                 callback,
                                 Current
                             )
-
+            
                             return true
-
+            
                         end
-
+            
                     end
-
+            
                     return false
-
+            
                 end
-
+            
                 function Object:Get()
+                
                     return Current
+            
                 end
-
+            
                 function Object:Open()
+                
                     openDropdown()
+            
                 end
-
+            
                 function Object:Close()
+                
                     closeDropdown()
+            
                 end
-
+            
                 function Object:IsOpen()
+                
                     return Opened
+            
                 end
-
+            
                 return Object
-
-            end
-
-            ----------------------------------------------------
-            -- LABEL
-            ----------------------------------------------------
-
-            function Elements:NewLabel(
-                text
-            )
-
-                local Label =
-                    Instance.new(
-                        "TextLabel"
-                    )
-
-                Label.Name =
-                    "Label"
-
-                Label.Size =
-                    UDim2.new(
-                        1,
-                        0,
-                        0,
-                        28
-                    )
-
-                Label.BackgroundTransparency =
-                    1
-
-                Label.Text =
-                    tostring(
-                        text or ""
-                    )
-
-                Label.TextColor3 =
-                    theme.TextColor
-
-                Label.TextSize =
-                    13
-
-                Label.Font =
-                    Enum.Font.Gotham
-
-                Label.Parent =
-                    Container
-
-                Label.ZIndex =
-                    20
-
-                local Object = {
-                    Instance =
-                        Label
-                }
-
-                function Object:SetText(
-                    value
-                )
-
-                    Label.Text =
-                        tostring(
-                            value
-                        )
-
-                end
-
-                function Object:GetText()
-
-                    return Label.Text
-
-                end
-
-                return Object
-
-            end
-
-            ----------------------------------------------------
-            -- TEXTBOX
-            ----------------------------------------------------
-
-            function Elements:NewTextBox(
-                name,
-                tip,
-                default,
-                callback
-            )
-
-                callback =
-                    callback or function() end
-
-                local Box =
-                    Instance.new(
-                        "TextBox"
-                    )
-
-                Box.Name =
-                    name or "TextBox"
-
-                Box.Size =
-                    UDim2.new(
-                        1,
-                        0,
-                        0,
-                        38
-                    )
-
-                Box.BackgroundColor3 =
-                    theme.ElementColor
-
-                Box.Text =
-                    tostring(
-                        default or ""
-                    )
-
-                Box.PlaceholderText =
-                    tostring(
-                        name or "TextBox"
-                    )
-
-                Box.TextColor3 =
-                    theme.TextColor
-
-                Box.PlaceholderColor3 =
-                    Color3.fromRGB(
-                        130,
-                        130,
-                        130
-                    )
-
-                Box.TextSize =
-                    13
-
-                Box.Font =
-                    Enum.Font.Gotham
-
-                Box.ClearTextOnFocus =
-                    false
-
-                Box.TextXAlignment =
-                    Enum.TextXAlignment.Left
-
-                Box.Parent =
-                    Container
-
-                Box.ZIndex =
-                    20
-
-                addCorner(
-                    Box,
-                    5
-                )
-
-                addPadding(
-                    Box,
-                    10,
-                    10,
-                    0,
-                    0
-                )
-
-                Hitboxes[Box] =
-                    function()
-
-                        Box:CaptureFocus()
-
-                    end
-
-                connect(
-                    Box.FocusLost,
-                    function()
-
-                        safeCallback(
-                            callback,
-                            Box.Text
-                        )
-
-                    end
-                )
-
-                local Object = {
-                    Instance =
-                        Box
-                }
-
-                function Object:Set(
-                    value
-                )
-
-                    Box.Text =
-                        tostring(value)
-
-                    safeCallback(
-                        callback,
-                        Box.Text
-                    )
-
-                end
-
-                function Object:Get()
-                    return Box.Text
-                end
-
-                function Object:Focus()
-                    Box:CaptureFocus()
-                end
-
-                return Object
-
-            end
-
-            ----------------------------------------------------
-            -- KEYBIND
-            ----------------------------------------------------
-
-            function Elements:NewKeybind(
-                name,
-                tip,
-                default,
-                callback
-            )
-
-                callback =
-                    callback or function() end
-
-                local CurrentKey =
-                    default
-                    or Enum.KeyCode.Unknown
-
-                local Waiting =
-                    false
-
-                local BindConnection =
-                    nil
-
-                local Keybind =
-                    Instance.new(
-                        "TextLabel"
-                    )
-
-                Keybind.Name =
-                    name or "Keybind"
-
-                Keybind.Size =
-                    UDim2.new(
-                        1,
-                        0,
-                        0,
-                        38
-                    )
-
-                Keybind.BackgroundColor3 =
-                    theme.ElementColor
-
-                Keybind.TextColor3 =
-                    theme.TextColor
-
-                Keybind.TextSize =
-                    13
-
-                Keybind.Font =
-                    Enum.Font.Gotham
-
-                Keybind.Parent =
-                    Container
-
-                Keybind.ZIndex =
-                    20
-
-                addCorner(
-                    Keybind,
-                    5
-                )
-
-                local function redraw()
-
-                    if Waiting then
-
-                        Keybind.Text =
-                            tostring(name)
-                            .. " [PRESS KEY]"
-
-                    else
-
-                        Keybind.Text =
-                            tostring(name)
-                            .. " ["
-                            .. CurrentKey.Name
-                            .. "]"
-
-                    end
-
-                end
-
-                redraw()
-
-                local function beginBind()
-
-                    if Waiting then
-                        return
-                    end
-
-                    Waiting =
-                        true
-
-                    redraw()
-
-                    if BindConnection then
-
-                        BindConnection:Disconnect()
-
-                        BindConnection =
-                            nil
-
-                    end
-
-                    BindConnection =
-                        UserInputService.InputBegan:Connect(
-                            function(
-                                input,
-                                processed
-                            )
-
-                                if processed
-                                    or self.Destroyed then
-
-                                    return
-
-                                end
-
-                                if input.UserInputType
-                                    ~= Enum.UserInputType.Keyboard then
-
-                                    return
-
-                                end
-
-                                CurrentKey =
-                                    input.KeyCode
-
-                                Waiting =
-                                    false
-
-                                redraw()
-
-                                if BindConnection then
-
-                                    BindConnection:Disconnect()
-
-                                    BindConnection =
-                                        nil
-
-                                end
-
-                                safeCallback(
-                                    callback,
-                                    CurrentKey
-                                )
-
-                            end
-                        )
-
-                    table.insert(
-                        self.Connections,
-                        BindConnection
-                    )
-
-                end
-
-                Hitboxes[Keybind] =
-                    function()
-
-                        beginBind()
-
-                    end
-
-                local Object = {
-                    Instance =
-                        Keybind
-                }
-
-                function Object:Set(
-                    key
-                )
-
-                    if typeof(key)
-                        ~= "EnumItem" then
-
-                        return false
-
-                    end
-
-                    if key.EnumType
-                        ~= Enum.KeyCode then
-
-                        return false
-
-                    end
-
-                    CurrentKey =
-                        key
-
-                    Waiting =
-                        false
-
-                    redraw()
-
-                    safeCallback(
-                        callback,
-                        CurrentKey
-                    )
-
-                    return true
-
-                end
-
-                function Object:Get()
-                    return CurrentKey
-                end
-
-                return Object
-
+            
             end
 
             ----------------------------------------------------
